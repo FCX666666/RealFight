@@ -10,13 +10,13 @@
 <script>
 import MainTabBar from "components/content/MainTabBar";
 export default {
-  name: "app",
+  name: 'app',
   components: {
     MainTabBar
   }
 };
 </script>
 
-<style>
-@import "assets/css/base.css";
+<style lang='less'>
+@import "~assets/css/base.css";
 </style>

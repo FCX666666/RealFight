@@ -1,6 +1,9 @@
 <template>
   <!--所有的item都展示同一个图片, 同一个文字-->
-  <div class="tab-bar-item" @click="itemClick">
+  <div
+    class="tab-bar-item"
+    @click="itemClick"
+  >
     <div v-if="!isActive">
       <slot name="item-icon"></slot>
     </div>
@@ -42,18 +45,19 @@ export default {
 };
 </script>
 
-<style scoped>
+<style lang='less' scoped>
+@name: 20px;
 .tab-bar-item {
   flex: 1;
   text-align: center;
   height: 49px;
   font-size: 14px;
-}
-.tab-bar-item img {
-  width: 24px;
-  height: 24px;
-  margin-top: 3px;
-  vertical-align: middle;
-  margin-bottom: 2px;
+  img {
+    width: 24px;
+    height: 24px;
+    margin-top: 3px;
+    vertical-align: middle;
+    margin-bottom: -@name;
+  }
 }
 </style>

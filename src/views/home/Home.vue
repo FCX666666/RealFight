@@ -1,12 +1,12 @@
 <template>
   <div>
-    <head-bar title="123"></head-bar>
-    <button
-      style="position:relative;top:10rem;"
-      @click="tesdMutaionsAndMutations"
-    >
-      {{countX}} click
-    </button>
+    <head-bar class="color">
+      <!-- v-slot用法  只能应用在template标签上 v-slot:left 简写成#left -->
+      <template #left>123</template>
+      <template #middle>123</template>
+      <!-- 作用于插槽 用于父组件不满意子组件的排布方式但是仍想用子组件的数据 -->
+      <template #right="data">{{data.data}}</template>
+    </head-bar>
   </div>
 </template>
 
@@ -15,10 +15,12 @@ import { mapGetters } from 'vuex'
 import { ADD_CART_ACTIONS } from '@/store/actions_types'
 import http from "network/home";
 import HeadBar from "components/common/headbar/HeadBar";
+import Toast from 'components/common/toast/Toast'
 export default {
   name: "Home",
   components: {
-    HeadBar
+    HeadBar,
+    Toast
   },
   methods: {
     tesdMutaionsAndMutations() {
@@ -30,10 +32,10 @@ export default {
   },
   created() {
     http.getHomeData().then(data => { });
-    /**
-     * 
-     */
     this.$nextTick(() => { });
+  },
+  mounted () {
+    this.$toast.showToast('asdasd')
   },
   activated() {
     console.log('页面活跃');
@@ -48,5 +50,15 @@ export default {
 };
 </script>
 
-<style>
+<style lang="less">
+@import '~assets/less/test.less';
+.test {
+  .color();
+}
+.toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate3d(-50%, -50%, 0);
+}
 </style>

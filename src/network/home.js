@@ -6,4 +6,6 @@ const homeRequest = {
   }
 }
 
+homeRequest.getHomeData()
+
 export default homeRequest

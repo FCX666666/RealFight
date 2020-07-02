@@ -10,14 +10,14 @@
       <slot name="middle"></slot>
     </div>
     <div class="right-icon">
-      <slot name="right"></slot>
+      <slot name="right" :data="names"></slot>
     </div>
   </div>
 </template>
 
 <script>
 export default {
-  name: "NewHeadBar",
+  name: "HeadBar",
   props: {
     title: {
       type: String,
@@ -32,6 +32,11 @@ export default {
           Params: ""
         };
       }
+    }
+  },
+  data () {
+    return {
+      names:['zhangsan','lisi','wangwu']
     }
   },
   methods: {
