@@ -1317,22 +1317,22 @@ strats.data = function (
 /**
  * Hooks and props are merged as arrays.
  */
-function mergeHook( // 生命周期钩子函数最终会合并成数组
-  parentVal,
-  childVal
+function mergeHook( // 生命周期钩子函数最终会合并成数组 进行相同名字的合并
+  parentVal,// [created(){}]
+  childVal // created(){} | [created(){}]
 ) {
-  var res = childVal ?
-    parentVal ?
+  var res = childVal ? // 判断当前子钩子有没有 如果没有直接返回父的对应钩子函数
+    parentVal ? // 如果有判断父钩子有没有 如果父值也有对应的钩子 就通过concat进行合并 父在前 子在后
     parentVal.concat(childVal) :
-    Array.isArray(childVal) ?
+    Array.isArray(childVal) ? // 如果父没有钩子在来判断当前子值是不是数组类型 （需要是数组类型） 如果不是就进行一次标准化
     childVal : [childVal] :
     parentVal;
   return res ?
-    dedupeHooks(res) :
+    dedupeHooks(res) : // 如果当前res存在 就进行一次去重
     res
 }
 
-function dedupeHooks(hooks) {
+function dedupeHooks(hooks) { // 消除重复钩子方法
   var res = [];
   for (var i = 0; i < hooks.length; i++) {
     if (res.indexOf(hooks[i]) === -1) {
@@ -1585,7 +1585,7 @@ function assertObjectType(name, value, vm) {
  * Merge two option objects into a new one.
  * Core utility used in both instantiation and inheritance.
  */
-function mergeOptions(
+function mergeOptions( // 对于不同的属性合并策略不同
   parent, // 基础opts
   child, // 用户传入的opts
   vm
@@ -1621,7 +1621,7 @@ function mergeOptions(
 
   var options = {};
   var key;
-  for (key in parent) {  // 对于Vue（或者其他构造器，或者合并过mixin、extends的opts）的key 全部都继承到新的opts中去
+  for (key in parent) { // 对于Vue（或者其他构造器，或者合并过mixin、extends的opts）的key 全部都继承到新的opts中去
     mergeField(key);
   }
   for (key in child) {
@@ -3308,7 +3308,7 @@ function createComponent(
   var baseCtor = context.$options._base;
 
   // plain options object: turn it into a constructor // 普通选项对象：将其转换为构造函数
-  if (isObject(Ctor)) { 
+  if (isObject(Ctor)) {
     Ctor = baseCtor.extend(Ctor);
   }
 
@@ -3344,6 +3344,7 @@ function createComponent(
 
   // resolve constructor options in case global mixins are applied after
   // component constructor creation
+  // 解析构造函数选项，以防在创建组件构造函数后应用全局mixin
   resolveConstructorOptions(Ctor);
 
   // transform component v-model data into props & events
@@ -5192,29 +5193,29 @@ function initMixin(Vue) {
 }
 
 /**
- * initInternalComponent主要做了两件事情：
- * 1.指定组件$options原型到构造器上去，
+ * initInternalComponent主要做了两件事情： 
+ * 1.组件$options原型指到构造器原型上去，可以直接访问属性
  * 2.把组件依赖于父组件的props、listeners也挂载到options上，方便子组件调用。
  */
-function initInternalComponent(vm, options) { // 组件vm 及其 opts
+function initInternalComponent(vm, options) { // 组件vm 及组件特异性的opts
   // vue 在初始化组件的时候会首先得到组件的vnode 这个过程中会去创建组件的Ctor
   // 取到组件Ctor的opts 这个opts是 Vue 构造器和组件构造器(Vue.extend(opts)传入)的opts合并后的opts 
   // 然后吧组件Ctor的opts 挂到vm.$options.__proto__ （原型链继承）
-  var opts = vm.$options = Object.create(vm.constructor.options); 
+  var opts = vm.$options = Object.create(vm.constructor.options);
   // doing this because it's faster than dynamic enumeration. 这样做是因为它比动态枚举快。
 
 
   // 假设<cpn :name="zs" @hel-lo="hello"/>
   // vm.$vnode（_parentVnode）是未经过 _render 函数处理的 vnode， 
   // vm._vnode 是经过 render处理过的，
-  var parentVnode = options._parentVnode; 
+  var parentVnode = options._parentVnode;
   opts.parent = options.parent; // 父组件vue实例 parent就是组件的根实例，
   opts._parentVnode = parentVnode; // 父组件vnode _parentVnode是<cpn/>生成的一个Vnode对象。 是未经过渲染的站位节点的vnode对象
 
-  var vnodeComponentOptions = parentVnode.componentOptions;// 把父组件里的vnode上的四个属性挂载到我们的$options上，提供给子组件去使用
+  var vnodeComponentOptions = parentVnode.componentOptions; // 把父组件里的vnode上的四个属性挂载到我们的$options上，提供给子组件去使用
 
-  opts.propsData = vnodeComponentOptions.propsData;  // 还是用那个例子来说，propsData就是根据:name="zs"生成的，
-  opts._parentListeners = vnodeComponentOptions.listeners;  // 而_parentListeners就是根据 @hel-lo="hello" 生成的，值是hello这个定义在父组件中的方法。
+  opts.propsData = vnodeComponentOptions.propsData; // 还是用那个例子来说，propsData就是根据:name="zs"生成的，
+  opts._parentListeners = vnodeComponentOptions.listeners; // 而_parentListeners就是根据 @hel-lo="hello" 生成的，值是hello这个定义在父组件中的方法。
   opts._renderChildren = vnodeComponentOptions.children;
   opts._componentTag = vnodeComponentOptions.tag;
 
@@ -5224,7 +5225,7 @@ function initInternalComponent(vm, options) { // 组件vm 及其 opts
   }
 }
 
-function resolveConstructorOptions(Ctor) {
+function resolveConstructorOptions(Ctor) { //解析构造函数，以防在创建组件构造函数后应用全局mixin
   var options = Ctor.options;
   if (Ctor.super) {
     var superOptions = resolveConstructorOptions(Ctor.super);
@@ -5302,8 +5303,9 @@ function initUse(Vue) {
 /*  */
 
 function initMixin$1(Vue) {
-  Vue.mixin = function (mixin) { // 往Vue去扩展一些东西
-    this.options = mergeOptions(this.options, mixin);  // 合并mixin上的属性到Vue.options上去
+  Vue.mixin = function (mixin) { // 通过 mergeOption s往Vue去扩展一些东西
+    // 合并mixin上的属性到Vue.options上去，之后再去new Vue时候会再次将已通过Vue.mixin扩充过得Vue构造器的opts与用户传入的options进行mergeOptions合并到实例vm.$options
+    this.options = mergeOptions(this.options, mixin); 
     return this
   };
 }
@@ -5342,7 +5344,7 @@ function initExtend(Vue) {
     Sub.prototype = Object.create(Super.prototype);
     Sub.prototype.constructor = Sub;
     Sub.cid = cid++;
-    Sub.options = mergeOptions(
+    Sub.options = mergeOptions( // 将大Vue
       Super.options,
       extendOptions
     );

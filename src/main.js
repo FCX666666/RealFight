@@ -84,6 +84,17 @@ import {
 
 //解决移动端点击延迟300ms
 fastClick.attach(document.body)
+debugger;
+Vue.mixin({
+  data () {
+    return {
+      time:Date.now()
+    }
+  },
+  created () {
+    console.log('created')
+  }
+})
 
 Vue.config.productionTip = false
 Vue.prototype.$http = http
