@@ -7,12 +7,25 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
+    "@vue/babel-helper-vue-jsx-merge-props": "^1.0.0",
+    "@vue/babel-preset-jsx": "^1.1.2",
+    "axios": "^0.19.1",
     "core-js": "^3.4.4",
-    "vue": "^2.6.10"
+    "element-ui": "^2.13.0",
+    "fastclick": "^1.0.6",
+    "vue": "^2.6.10",
+    "vue-clipboard2": "^0.3.1",
+    "vue-router": "^3.1.5"
   },
   "devDependencies": {
+    "@babel/plugin-syntax-jsx": "^7.8.3",
+    "@typescript-eslint/eslint-plugin": "^2.29.0",
+    "@typescript-eslint/parser": "^2.29.0",
     "@vue/cli-plugin-babel": "^4.1.0",
     "@vue/cli-service": "^4.1.0",
+    "animate.css": "^3.7.2",
+    "eslint": "^6.8.0",
+    "eslint-plugin-vue": "^6.2.2",
     "less": "^3.0.4",
     "less-loader": "^5.0.0",
     "vue-template-compiler": "^2.6.10"
