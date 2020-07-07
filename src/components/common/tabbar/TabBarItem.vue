@@ -1,8 +1,18 @@
 <template>
-  <div class="tabbar-item" @click="itemClick">
-    <div v-if="!active" class="img-class"><slot name="non-active"></slot></div>
-    <div v-else><slot name="on-active"></slot></div>
-    <div :style="activeStyle"><slot name="text-in"></slot></div>
+  <!--所有的item都展示同一个图片, 同一个文字-->
+  <div
+    class="tab-bar-item"
+    @click="itemClick"
+  >
+    <div v-if="!isActive">
+      <slot name="item-icon"></slot>
+    </div>
+    <div v-else>
+      <slot name="item-icon-active"></slot>
+    </div>
+    <div :style="activeStyle">
+      <slot name="item-text"></slot>
+    </div>
   </div>
 </template>
 
@@ -10,11 +20,8 @@
 export default {
   name: "TabBarItem",
   props: {
-    path: {
-      type: String,
-      default: "/home"
-    },
-    activeClass: {
+    path: String,
+    activeColor: {
       type: String,
       default: "red"
     }
@@ -22,46 +29,35 @@ export default {
   data() {
     return {};
   },
-
   computed: {
-    active() {
-      this.$route.path.includes(this.path);
+    isActive() {
+      return this.$route.path.indexOf(this.path) !== -1;
     },
     activeStyle() {
-      return this.active
-        ? Object.assign(
-            {},
-            { color: this.activeClass },
-            { marginBottom: "3px" }
-          )
-        : { marginBottom: "3px" };
+      return this.isActive ? { color: this.activeColor } : {};
     }
   },
   methods: {
     itemClick() {
-      this.$router.push({
-        path: this.path
-      });
+      this.$router.replace(this.path);
     }
   }
 };
 </script>
-<style lang="css" scoped>
-.tabbar-item {
-  /* flex：1会均等分空间 */
+
+<style lang='less' scoped>
+@name: 20px;
+.tab-bar-item {
   flex: 1;
-  display: flex;
-  flex-flow: column;
   text-align: center;
-}
-.active {
-  color: red;
-}
-.img-class {
-  margin: auto;
-}
-.img-class img {
-  width: 20px;
-  height: 20px;
+  height: 49px;
+  font-size: 14px;
+  img {
+    width: 24px;
+    height: 24px;
+    margin-top: 3px;
+    vertical-align: middle;
+    margin-bottom: -@name;
+  }
 }
 </style>

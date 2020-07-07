@@ -1,5 +1,11 @@
-import http from './index.js'
+import http from './http'
 
-export function getHomeData() {
-  return http.get('/home/multidata')
+const homeRequest = {
+  getHomeData(){
+    return http.get('/home/data')
+  }
 }
+
+homeRequest.getHomeData()
+
+export default homeRequest

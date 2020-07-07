@@ -1,11 +1,10 @@
-@import './normalize.css';
+@charset "utf-8";
+@import "./normalize.css";
 
-/* 获取根元素 相当于html */
+/*:root -> 获取根元素html*/
 :root {
-  /* 通过--来定义css原生变量 并且通过var(--color-text) 来进行引用 */
   --color-text: #666;
   --color-high-text: #ff5777;
-  /* 整体背景颜色 */
   --color-tint: #ff8198;
   --color-background: #fff;
   --font-size: 14px;
