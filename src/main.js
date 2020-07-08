@@ -84,16 +84,16 @@ import App from './App.vue'
 
 //解决移动端点击延迟300ms
 // fastClick.attach(document.body)
-Vue.mixin({
-  data () {
-    return {
-      time:Date.now()
-    }
-  },
-  created () {
-    console.log('created')
-  }
-})
+// Vue.mixin({
+//   data () {
+//     return {
+//       time:Date.now()
+//     }
+//   },
+//   created () {
+//     console.log('created')
+//   }
+// })
 
 // Vue.config.productionTip = false
 // Vue.prototype.$http = http
@@ -105,6 +105,7 @@ Vue.mixin({
 //   error:require('@/assets/img/logo.png'),//加載失敗
 //   loading:require('@/assets/img/logo.png')//加載中
 // })
+debugger
 new Vue({
   render: h => h(App),
   router,

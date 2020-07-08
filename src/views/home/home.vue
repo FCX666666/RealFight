@@ -34,7 +34,7 @@ export default {
     http.getHomeData().then(data => { });
     this.$nextTick(() => { });
   },
-  mounted () {
+  mounted() {
     // this.$toast.showToast('asdasd')
   },
   activated() {
@@ -51,7 +51,7 @@ export default {
 </script>
 
 <style lang="less">
-@import '~assets/less/test.less';
+@import "~assets/less/test.less";
 .test {
   .color();
 }

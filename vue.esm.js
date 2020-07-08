@@ -5,6 +5,16 @@
  */
 /*  */
 
+/**
+ * vm.$options.parent 当前活跃vm实例 也就是当前在创建的组件的vm  作为需要渲染的组件的parent  和子组件的vm连接起来
+ * vm.$parent               父vm(非抽象)
+ * vm.$children             子vm数组
+ * vm.$vnode                组件当前对应的占位符vnode 
+ * vm._vnode                组件当前对应的vnode
+ * vm.$options._parentVnode 等同于vm.$vnode
+ * vm._vnode.parent         等同于vm.$vnode
+ */
+
 
 
 var emptyObject = Object.freeze({});
@@ -3239,7 +3249,7 @@ var componentVNodeHooks = {
       var mountedNode = vnode; // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode);
     } else {
-      var child = vnode.componentInstance = createComponentInstanceForVnode(
+      var child = vnode.componentInstance = createComponentInstanceForVnode( // 创建当前组件的实例
         vnode,
         activeInstance
       );
@@ -3295,11 +3305,11 @@ var componentVNodeHooks = {
 var hooksToMerge = Object.keys(componentVNodeHooks);
 
 function createComponent(
-  Ctor,
-  data,
-  context,
-  children,
-  tag
+  Ctor, // 导入的App对象 export default {} 其实就是通过ES6语法导出的对象 其中template已经转化成render函数了（通过vue-loader）
+  data, // vnodedata
+  context, // vm
+  children, // 子节点
+  tag // 标签名
 ) {
   if (isUndef(Ctor)) {
     return
@@ -3307,9 +3317,9 @@ function createComponent(
 
   var baseCtor = context.$options._base;
 
-  // plain options object: turn it into a constructor // 普通选项对象：将其转换为构造函数
+  // plain options object: turn it into a constructor // 普通选项对象：将其转换为组件构造器构造函数
   if (isObject(Ctor)) {
-    Ctor = baseCtor.extend(Ctor);
+    Ctor = baseCtor.extend(Ctor);// 实际上相当于是拿到了一些基础的options和一些策略函数
   }
 
   // if at this stage it's not a constructor or an async component factory,
@@ -3414,7 +3424,7 @@ function createComponentInstanceForVnode(
     options.render = inlineTemplate.render;
     options.staticRenderFns = inlineTemplate.staticRenderFns;
   }
-  return new vnode.componentOptions.Ctor(options)
+  return new vnode.componentOptions.Ctor(options) // 创建当前组件对应的vm实例
 }
 
 function installComponentHooks(data) {
@@ -3469,8 +3479,8 @@ var ALWAYS_NORMALIZE = 2;
 // wrapper function for providing a more flexible interface
 // without getting yelled at by flow
 function createElement(
-  context,
-  tag,
+  context, // 当前vm
+  tag, // 这里的tag 就是当前 h=>h(App)的App的对象内容
   data,
   children,
   normalizationType,
@@ -3484,7 +3494,7 @@ function createElement(
   if (isTrue(alwaysNormalize)) {
     normalizationType = ALWAYS_NORMALIZE;
   }
-  return _createElement(context, tag, data, children, normalizationType)
+  return _createElement(context, tag, data, children, normalizationType) // 标准化后开始真正的createElemnt
 }
 
 function _createElement(
@@ -3724,8 +3734,9 @@ function renderMixin(Vue) {
       }
       vnode = createEmptyVNode();
     }
-    // set parent
+    // set parent 再次将占位符节点赋值给当前vnode.parent   
     vnode.parent = _parentVnode;
+    // 这里的vnode返回给 vm._update() 使用， update会进行 vm._vnode = vnode，将真正组件的vnode赋值给_vnode ,所以vm.vnode.parent就是占位符节点
     return vnode
   };
 }
@@ -4059,19 +4070,19 @@ function setActiveInstance(vm) {
   }
 }
 
-function initLifecycle(vm) {
+function initLifecycle(vm) { // 初始化生命周期
   var options = vm.$options;
 
-  // locate first non-abstract parent
-  var parent = options.parent;
+  // locate first non-abstract parent 确定第一个非抽象父节点
+  var parent = options.parent; 
   if (parent && !options.abstract) {
-    while (parent.$options.abstract && parent.$parent) {
+    while (parent.$options.abstract && parent.$parent) { // 如果当前父节点的opts配置了当前节点是抽象的并且还拥有父vm，向上一层，继续判断，直到得到第一个非抽象节点。
       parent = parent.$parent;
     }
-    parent.$children.push(vm);
+    parent.$children.push(vm); //  vm之间互相添加依赖
   }
 
-  vm.$parent = parent;
+  vm.$parent = parent;  //  vm之间互相添加依赖
   vm.$root = parent ? parent.$root : vm;
 
   vm.$children = [];
@@ -4089,9 +4100,9 @@ function lifecycleMixin(Vue) {
   Vue.prototype._update = function (vnode, hydrating) {
     var vm = this;
     var prevEl = vm.$el;
-    var prevVnode = vm._vnode;
+    var prevVnode = vm._vnode; // 首先拿到上次的vnode结果 作为patch时候的参数 如果是首次渲染 此项为空
     var restoreActiveInstance = setActiveInstance(vm);
-    vm._vnode = vnode;
+    vm._vnode = vnode; // 赋予新的vnode或者初始化vnode
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
     if (!prevVnode) {
@@ -5355,7 +5366,7 @@ function initExtend(Vue) {
     Sub.prototype = Object.create(Super.prototype);
     Sub.prototype.constructor = Sub;
     Sub.cid = cid++;
-    Sub.options = mergeOptions( // 将大Vue
+    Sub.options = mergeOptions( // 将大Vue的opts合并到子构造器的opts上去
       Super.options,
       extendOptions
     );
@@ -6128,10 +6139,10 @@ function createPatchFunction(backend) {
   var creatingElmInVPre = 0;
 
   function createElm(
-    vnode,
+    vnode, // 当前组件的vnode
     insertedVnodeQueue,
-    parentElm,
-    refElm,
+    parentElm, // 目标位置的父节点
+    refElm, // 目标位置的兄弟节点
     nested,
     ownerArray,
     index
@@ -6146,6 +6157,7 @@ function createPatchFunction(backend) {
     }
 
     vnode.isRootInsert = !nested; // for transition enter check
+    // 创建当前vnode的组件 创建当前组件的时候回去递归构建子组件
     if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
       return
     }
@@ -6499,7 +6511,7 @@ function createPatchFunction(backend) {
 
   function patchVnode(
     oldVnode,
-    vnode,
+    vnode, // 当前组件的vnode
     insertedVnodeQueue,
     ownerArray,
     index,
@@ -6710,6 +6722,12 @@ function createPatchFunction(backend) {
     }
   }
 
+  /**
+   *  oldVnode   上次的vnode 初始化的时候传入的是当前的vm.$el
+   *  vnode 当前组件对应的最新的vnode
+   *  注水？
+   *  仅删除？
+   */
   return function patch(oldVnode, vnode, hydrating, removeOnly) {
     if (isUndef(vnode)) {
       if (isDef(oldVnode)) {
@@ -6755,6 +6773,7 @@ function createPatchFunction(backend) {
           }
           // either not server-rendered, or hydration failed.
           // create an empty node and replace it
+          // 把真实element节点替换成vnode 并把真实的节点保存到vnode.elm
           oldVnode = emptyNodeAt(oldVnode);
         }
 
@@ -12330,10 +12349,10 @@ var idToTemplate = cached(function (id) { // 缓存方法
 
 var mount = Vue.prototype.$mount;
   //这段代码首先缓存了原型上的 $mount 方法，再重新定义该方法。
-  编译过程我们之后会介绍。最后，调用原先原型上的 $mount 方法挂载。
+  // 最后，调用原先原型上的 $mount 方法挂载。
   // 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  
   // return mountComponent(this, el, hydrating)
-Vue.prototype.$mount = function ( 
+Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  return mountComponent(this, el, hydrating)
   el,
   hydrating
 ) {
