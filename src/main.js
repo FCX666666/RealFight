@@ -1,7 +1,5 @@
 
 // import Vue from 'vue'
-import App from './App.vue'
-import router from './router'
 // import FastClick from 'fastclick'
 // FastClick.attach(document.body)
 // // import VueClipboard from 'vue-clipboard2'
@@ -70,21 +68,22 @@ import router from './router'
 // let res = hyphenate('zASDjsASDASDzS')
 // console.log(res)
 import Vue from 'vue'
-import http from './network/http'
-import store from './store'
-import utils from 'common/utils'
-import toast from 'components/common/toast'
-import lazyLoad from 'vue-lazyload'
-import _ from 'lodash'
-import 'animate.css'
-import fastClick from 'fastclick'
-import {
-  mixinBackTop
-} from 'common/mixin'
+import router from './router'
+import App from './App.vue'
+// import http from './network/http'
+// import store from './store'
+// import utils from 'common/utils'
+// import toast from 'components/common/toast'
+// import lazyLoad from 'vue-lazyload'
+// import _ from 'lodash'
+// import 'animate.css'
+// import fastClick from 'fastclick'
+// import {
+//   mixinBackTop
+// } from 'common/mixin'
 
 //解决移动端点击延迟300ms
-fastClick.attach(document.body)
-debugger;
+// fastClick.attach(document.body)
 Vue.mixin({
   data () {
     return {
@@ -96,16 +95,16 @@ Vue.mixin({
   }
 })
 
-Vue.config.productionTip = false
-Vue.prototype.$http = http
-Vue.prototype.$bus = new Vue
-Vue.prototype.$utils = utils
-Vue.mixin(mixinBackTop)
-Vue.use(toast)
-Vue.use(lazyLoad, {
-  error:require('@/assets/img/logo.png'),//加載失敗
-  loading:require('@/assets/img/logo.png')//加載中
-})
+// Vue.config.productionTip = false
+// Vue.prototype.$http = http
+// Vue.prototype.$bus = new Vue
+// Vue.prototype.$utils = utils
+// Vue.mixin(mixinBackTop)
+// Vue.use(toast)
+// Vue.use(lazyLoad, {
+//   error:require('@/assets/img/logo.png'),//加載失敗
+//   loading:require('@/assets/img/logo.png')//加載中
+// })
 new Vue({
   render: h => h(App),
   router,

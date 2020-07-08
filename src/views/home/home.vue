@@ -15,12 +15,12 @@ import { mapGetters } from 'vuex'
 import { ADD_CART_ACTIONS } from '@/store/actions_types'
 import http from "network/home";
 import HeadBar from "components/common/headbar/HeadBar";
-import Toast from 'components/common/toast/Toast'
+// import Toast from 'components/common/toast/Toast'
 export default {
   name: "Home",
   components: {
     HeadBar,
-    Toast
+    // Toast
   },
   methods: {
     tesdMutaionsAndMutations() {
@@ -35,7 +35,7 @@ export default {
     this.$nextTick(() => { });
   },
   mounted () {
-    this.$toast.showToast('asdasd')
+    // this.$toast.showToast('asdasd')
   },
   activated() {
     console.log('页面活跃');

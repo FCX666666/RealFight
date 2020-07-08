@@ -1,8 +1,8 @@
 <template>
   <tab-bar>
     <tab-bar-item path="/home"  class='nav-xcf'>
-      <img slot="item-icon" v-lazy="" alt="">
-      <img slot="item-icon-active" v-lazy="" alt="">
+      <img slot="item-icon"  alt="">
+      <img slot="item-icon-active"  alt="">
       <div slot="item-text">首页</div>
     </tab-bar-item>
     <tab-bar-item path="/category">
