@@ -162,7 +162,7 @@ function hasOwn(obj, key) {
 /**
  * Create a cached version of a pure function.
  */
-function cached(fn) {
+function cached(fn) { // 维持一个闭包 闭包里面保存当前方法执行后的结果
   var cache = Object.create(null);
   return (function cachedFn(str) {
     var hit = cache[str];
@@ -3667,20 +3667,21 @@ function renderMixin(Vue) {
 
   Vue.prototype._render = function () {
     var vm = this;
-    var ref = vm.$options;
-    var render = ref.render;
-    var _parentVnode = ref._parentVnode;
+    var { render, _parentVnode } = vm.$options
+    // var ref = vm.$options; // webpack + babel 会将解构表达式重新解析为ref的形式
+    // var render = ref.render;
+    // var _parentVnode = ref._parentVnode;
 
-    if (_parentVnode) {
+    if (_parentVnode) { // 如果存在站为节点
       vm.$scopedSlots = normalizeScopedSlots(
         _parentVnode.data.scopedSlots,
         vm.$slots,
         vm.$scopedSlots
       );
     }
-
-    // set parent vnode. this allows render functions to have access
-    // to the data on the placeholder node.
+ 
+    // set parent vnode. this allows render functions to have access 设置父vnode。
+    // to the data on the placeholder node. 允许渲染函数访问占位符(_parentVnode)节点上的数据
     vm.$vnode = _parentVnode;
     // render self
     var vnode;
@@ -4166,7 +4167,12 @@ function lifecycleMixin(Vue) {
     }
   };
 }
-
+  
+/**
+ * mountComponent 核心就是先实例化一个 render-Watcher，
+ * 在它的回调函数中会调用 updateComponent 方法，
+ * 在此方法中调用 vm._render 方法先生成虚拟 Node，最终调用 vm._update 更新 DOM。
+ */
 function mountComponent(
   vm,
   el,
@@ -4204,13 +4210,13 @@ function mountComponent(
       var startTag = "vue-perf-start:" + id;
       var endTag = "vue-perf-end:" + id;
 
-      mark(startTag);
-      var vnode = vm._render();
+      mark(startTag); 
+      var vnode = vm._render(); // 拿到当前vm对应的vnode
       mark(endTag);
       measure(("vue " + name + " render"), startTag, endTag);
 
       mark(startTag);
-      vm._update(vnode, hydrating);
+      vm._update(vnode, hydrating); // 更新vnode到页面上去
       mark(endTag);
       measure(("vue " + name + " patch"), startTag, endTag);
     };
@@ -4220,23 +4226,27 @@ function mountComponent(
     };
   }
 
-  // we set this to vm._watcher inside the watcher's constructor
-  // since the watcher's initial patch may call $forceUpdate (e.g. inside child
-  // component's mounted hook), which relies on vm._watcher being already defined
+
+  // Watcher 在这里起到两个作用，
+  // 1. 初始化的时候会执行回调函数
+  // 2. 当 vm 实例中的监测的数据发生变化的时候执行回调函数
+  // we set this to vm._watcher inside the watcher's constructor 我们在观察者的构造函数中设置为vm._watcher，
+  // since the watcher's initial patch may call $forceUpdate (e.g. inside child 因为观察者的初始补丁可能调用$forceUpdate（例如在子组件的挂载钩子中）
+  // component's mounted hook), which relies on vm._watcher being already defined 这依赖于已经定义的vm._watcher
   new Watcher(vm, updateComponent, noop, { // watcher
     before: function before() {
       if (vm._isMounted && !vm._isDestroyed) {
         callHook(vm, 'beforeUpdate'); // 执行一次更新前钩子
       }
     }
-  }, true /* isRenderWatcher */ ); // isRenderWatcher 这个标志位只有在挂载组建的时候才会true
+  }, true /* isRenderWatcher */ ); // isRenderWatcher 这个标志位只有在挂载组件的时候才会true
   hydrating = false;
 
   // manually mounted instance, call mounted on self
   // mounted is called for render-created child components in its inserted hook
-  if (vm.$vnode == null) {
-    vm._isMounted = true;
-    callHook(vm, 'mounted');
+  if (vm.$vnode == null) {   //  vm.$vnode 表示 Vue 实例的父虚拟 Node，所以它为 Null 则表示当前是根 Vue 的实例
+    vm._isMounted = true;   // 函数最后判断为根节点的时候设置 vm._isMounted 为 true， 表示这个实例已经挂载了，同时执行 mounted 钩子函数。 
+    callHook(vm, 'mounted'); // 执行一次挂载钩子
   }
   return vm
 }
@@ -5133,7 +5143,7 @@ function stateMixin(Vue) {
 var uid$3 = 0;
 
 function initMixin(Vue) {
-  Vue.prototype._init = function (options) {
+  Vue.prototype._init = function (options) { // new Vue(opts)
     var vm = this;
     // a uid
     vm._uid = uid$3++;
@@ -5146,17 +5156,18 @@ function initMixin(Vue) {
       mark(startTag);
     }
 
-    // a flag to avoid this being observed
+    // a flag to avoid this being observed 避免被观察
     vm._isVue = true;
     // merge options
-    if (options && options._isComponent) {
-      // 优化内部组件实例化，因为动态选项合并非常慢，并且没有任何内部组件选项需要特殊处理。
+    if (options && options._isComponent) { // 初始化组件
+      // 优化内部组件实例化，因为动态选项合并非常慢，并且没有任何内部组件opts需要特殊处理。
       // optimize internal component instantiation
       // since dynamic options merging is pretty slow, and none of the
       // internal component options needs special treatment.
+      // 初始化内部组件 传入组件的vm 和 opts
       initInternalComponent(vm, options);
-    } else {
-      vm.$options = mergeOptions(
+    } else { // 外部调用 new Vue(opts)
+      vm.$options = mergeOptions( // 不同字段合并策略不同
         resolveConstructorOptions(vm.constructor),
         options || {},
         vm
@@ -5166,16 +5177,16 @@ function initMixin(Vue) {
     if (process.env.NODE_ENV !== 'production') {
       initProxy(vm);
     } else {
-      vm._renderProxy = vm;
+      vm._renderProxy = vm; // 生产环境下渲染代理就是vm本身
     }
     // expose real self
     vm._self = vm;
-    initLifecycle(vm);
-    initEvents(vm);
-    initRender(vm);
+    initLifecycle(vm); //初始化生命周期， 
+    initEvents(vm); // 初始化事件中心
+    initRender(vm); //初始化渲染，
     callHook(vm, 'beforeCreate');
     initInjections(vm); // resolve injections before data/props
-    initState(vm);
+    initState(vm); // 初始化 data、props、computed、watcher 
     initProvide(vm); // resolve provide after data/props
     callHook(vm, 'created');
 
@@ -5186,7 +5197,7 @@ function initMixin(Vue) {
       measure(("vue " + (vm._name) + " init"), startTag, endTag);
     }
 
-    if (vm.$options.el) {
+    if (vm.$options.el) { // 在初始化的最后，检测到如果有 el 属性，则调用 vm.$mount 方法挂载 vm，挂载的目标就是把模板渲染成最终的 DOM，
       vm.$mount(vm.$options.el);
     }
   };
@@ -9377,7 +9388,7 @@ Vue.prototype.$mount = function (
   hydrating
 ) {
   el = el && inBrowser ? query(el) : undefined;
-  return mountComponent(this, el, hydrating)
+  return mountComponent(this, el, hydrating) // 挂载当前vm到el上去
 };
 
 // devtools global hook
@@ -12312,20 +12323,24 @@ var shouldDecodeNewlinesForHref = inBrowser ? getShouldDecode(true) : false;
 
 /*  */
 
-var idToTemplate = cached(function (id) {
+var idToTemplate = cached(function (id) { // 缓存方法
   var el = query(id);
-  return el && el.innerHTML
+  return el && el.innerHTML // 查找el的内部所有内容
 });
 
 var mount = Vue.prototype.$mount;
-Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  return mountComponent(this, el, hydrating)
+  //这段代码首先缓存了原型上的 $mount 方法，再重新定义该方法。
+  编译过程我们之后会介绍。最后，调用原先原型上的 $mount 方法挂载。
+  // 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  
+  // return mountComponent(this, el, hydrating)
+Vue.prototype.$mount = function ( 
   el,
   hydrating
 ) {
   el = el && query(el);
 
   /* istanbul ignore if */
-  if (el === document.body || el === document.documentElement) {
+  if (el === document.body || el === document.documentElement) { // 首先，对 el 做限制，Vue 不能挂载在 body、html 这样的根节点上。
     process.env.NODE_ENV !== 'production' && warn(
       "Do not mount Vue to <html> or <body> - mount to normal elements instead."
     );
@@ -12334,10 +12349,10 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
 
   var options = this.$options;
   // resolve template/el and convert to render function 将 template 和 el 元素编译成渲染函数
-  if (!options.render) {
+  if (!options.render) { // 如果没有定义 render 方法，则会把 el 或者 template 字符串转换成 render 方法。
     var template = options.template;
     if (template) {
-      if (typeof template === 'string') {
+      if (typeof template === 'string') { // 判断 如果是字符串进行查找
         if (template.charAt(0) === '#') {
           template = idToTemplate(template);
           /* istanbul ignore if */
@@ -12356,7 +12371,7 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
         }
         return this
       }
-    } else if (el) {
+    } else if (el) {  // 如果没有传入template 就直接获取el.innerHTML作template 最终这个template还会挂载到el上去
       template = getOuterHTML(el);
     }
     if (template) {
@@ -12364,8 +12379,10 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
       if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
         mark('compile');
       }
-
-      var ref = compileToFunctions(template, {
+      // 在 Vue 2.0 版本中，所有 Vue 的组件的渲染最终都需要 render 方法，
+      // 无论是用单文件 .vue 方式开发组件，还是写了 el 或者 template 属性，最终都会转换成 render 方法，
+      // 这个过程是 Vue 的一个“在线编译”的过程，它是调用 compileToFunctions 方法实现的，
+      var ref = compileToFunctions(template, { // 得到render 和 静态render并挂到options 相当于是做了一次normalize-for-render
         outputSourceRange: process.env.NODE_ENV !== 'production',
         shouldDecodeNewlines: shouldDecodeNewlines,
         shouldDecodeNewlinesForHref: shouldDecodeNewlinesForHref,
@@ -12374,7 +12391,7 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
       }, this);
       var render = ref.render;
       var staticRenderFns = ref.staticRenderFns;
-      options.render = render;
+      options.render = render; 
       options.staticRenderFns = staticRenderFns;
 
       /* istanbul ignore if */
@@ -12391,13 +12408,34 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
  * Get outerHTML of elements, taking care
  * of SVG elements in IE as well.
  */
+
+ /**
+  * 
+  * 
+  * <div id="test">
+      <span style="color:red">test1</span> test2
+    </div>
+    <a href="javascript:alert(test.innerHTML)">innerHTML内容</a>
+    <a href="javascript:alert(test.innerText)">inerHTML内容</a>
+    <a href="javascript:alert(test.outerHTML)">outerHTML内容</a> 
+  * test.innerHTML:
+      　　也就是从对象的起始位置到终止位置的全部内容,包括Html标签。
+      　　上例中的test.innerHTML的值也就是“<span style="color:red">test1</span> test2 ”。
+    test.innerText:
+      　　从起始位置到终止位置的内容, 但它去除Html标签
+      　　上例中的text.innerTest的值也就是“test1 test2”, 其中span标签去除了。
+    test.outerHTML:
+      　　除了包含innerHTML的全部内容外, 还包含对象标签本身。
+      　　上例中的text.outerHTML的值也就是<div id="test"><span style="color:red">test1</span> test2</div>
+
+  */
 function getOuterHTML(el) {
   if (el.outerHTML) {
     return el.outerHTML
-  } else {
+  } else {// shim 实际上也是获得el本身的html的所有内容
     var container = document.createElement('div');
     container.appendChild(el.cloneNode(true));
-    return container.innerHTML
+    return container.innerHTML 
   }
 }
 
