@@ -6,15 +6,19 @@
 /*  */
 
 /**
- * vm.$options.parent 当前活跃vm实例 也就是当前在创建的组件的vm  作为需要渲染的组件的parent  和子组件的vm连接起来
+ * vm.$options.parent       等同于 vm.$parent 当前活跃vm实例 也就是父vm 也就是当前正在创建的组件的vm
  * vm.$parent               父vm(非抽象)
  * vm.$children             子vm数组
- * vm.$vnode                组件当前对应的占位符vnode 
- * vm._vnode                组件当前对应的vnode
+ * vm.$vnode                组件当前对应的 placeholder-vnode 
  * vm.$options._parentVnode 等同于vm.$vnode
  * vm._vnode.parent         等同于vm.$vnode
+ * vm._vnode                组件当前对应的vnode
+ * 
+ * _render() => vm.$options.render  将render函数转换成vnode
+ * _update() => vm.__patch__    将vnode转换成真实的dom元素
+ * 
  */
-
+ 
 
 
 var emptyObject = Object.freeze({});
@@ -2451,17 +2455,19 @@ function checkProp(
 /*  */
 
 // The template compiler attempts to minimize the need for normalization by
-// statically analyzing the template at compile time.
+// statically analyzing the template at compile time. 模板编译器试图通过在编译时静态分析模板来尽量减少规范化的需要。
 //
 // For plain HTML markup, normalization can be completely skipped because the
 // generated render function is guaranteed to return Array<VNode>. There are
-// two cases where extra normalization is needed:
+// two cases where extra normalization is needed: 对于纯HTML标记，可以完全跳过规范化，因为生成的render函数保证返回Array<VNode>。有两种情况需要额外规范化：
 
 // 1. When the children contains components - because a functional component
 // may return an Array instead of a single root. In this case, just a simple
 // normalization is needed - if any child is an Array, we flatten the whole
 // thing with Array.prototype.concat. It is guaranteed to be only 1-level deep
-// because functional components already normalize their own children.
+// because functional components already normalize their own children.  
+// 当children包含组件的vnode时-因为函数式组件可能返回数组而不是单个根。在这种情况下，只需要一个简单的规范化-如果任何子元素是数组，
+// 我们就用Array.prototype.concat去进行一层的扁平化, 它保证只有1级深，因为函数式组件已经对自己的children 进行标准化。
 function simpleNormalizeChildren(children) {
   for (var i = 0; i < children.length; i++) {
     if (Array.isArray(children[i])) {
@@ -2475,6 +2481,10 @@ function simpleNormalizeChildren(children) {
 // e.g. <template>, <slot>, v-for, or when the children is provided by user
 // with hand-written render functions / JSX. In such cases a full normalization
 // is needed to cater to all possible types of children values.
+// 当 children 的结构总是嵌套数组时，
+// 例如，<template>，<slot>，v-for，
+// 或当children由用户提供时,使用手写的render/JSX。
+// 在这种情况下，需要进行复杂的标准化,需要迎合所有可能类型的children。
 function normalizeChildren(children) {
   return isPrimitive(children) ? [createTextVNode(children)] :
     Array.isArray(children) ?
@@ -3249,11 +3259,12 @@ var componentVNodeHooks = {
       var mountedNode = vnode; // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode);
     } else {
-      var child = vnode.componentInstance = createComponentInstanceForVnode( // 创建当前组件的实例
+      debugger
+      var child = vnode.componentInstance = createComponentInstanceForVnode( // 创建当前组件的vm实例
         vnode,
         activeInstance
       );
-      child.$mount(hydrating ? vnode.elm : undefined, hydrating);
+      child.$mount(hydrating ? vnode.elm : undefined, hydrating); // 拿到组件的实例挂载到vnode.elm(elm是html中真实的dom节点)上去
     }
   },
 
@@ -3307,7 +3318,7 @@ var hooksToMerge = Object.keys(componentVNodeHooks);
 function createComponent(
   Ctor, // 导入的App对象 export default {} 其实就是通过ES6语法导出的对象 其中template已经转化成render函数了（通过vue-loader）
   data, // vnodedata
-  context, // vm
+  context, // vm 当前占位节点所在的上下文vm 
   children, // 子节点
   tag // 标签名
 ) {
@@ -3350,30 +3361,30 @@ function createComponent(
     }
   }
 
-  data = data || {};
+  data = data || {}; // vnodedata
 
   // resolve constructor options in case global mixins are applied after
   // component constructor creation
   // 解析构造函数选项，以防在创建组件构造函数后应用全局mixin
   resolveConstructorOptions(Ctor);
 
-  // transform component v-model data into props & events
+  // transform component v-model data into props & events 解析带有v-model的组件
   if (isDef(data.model)) {
     transformModel(Ctor.options, data);
   }
 
-  // extract props
+  // extract props 提取props
   var propsData = extractPropsFromVNodeData(data, Ctor, tag);
 
-  // functional component
-  if (isTrue(Ctor.options.functional)) {
+  // functional component 判断是不是函数时组件 如果是直接创建函数式组件
+  if (isTrue(Ctor.options.functional)) { 
     return createFunctionalComponent(Ctor, propsData, data, context, children)
   }
 
-  // extract listeners, since these needs to be treated as
+  // extract listeners, since these needs to be treated as 提取方法,data.on应该被处理为子组件$emit出来的方法而不是原生native的方法
   // child component listeners instead of DOM listeners
   var listeners = data.on;
-  // replace with listeners with .native modifier
+  // replace with listeners with .native modifier // 将包含.native修饰符的方法添加到当前组件的vnodedata.on 作为当前组件的native方法
   // so it gets processed during parent component patch.
   data.on = data.nativeOn;
 
@@ -3388,7 +3399,7 @@ function createComponent(
       data.slot = slot;
     }
   }
-
+  // 为站为节点添加组件钩子
   // install component management hooks onto the placeholder node
   installComponentHooks(data);
 
@@ -3479,19 +3490,19 @@ var ALWAYS_NORMALIZE = 2;
 // wrapper function for providing a more flexible interface
 // without getting yelled at by flow
 function createElement(
-  context, // 当前vm
+  context, // 当前渲染上下文 用当前上下文去渲染组件占位节点和常规节点 
   tag, // 这里的tag 就是当前 h=>h(App)的App的对象内容
   data,
   children,
   normalizationType,
-  alwaysNormalize
+  alwaysNormalize // 用户手写的render此参数是true, vue-loader解析成的render,此参数就会false 
 ) {
   if (Array.isArray(data) || isPrimitive(data)) {
     normalizationType = children;
     children = data;
     data = undefined;
   }
-  if (isTrue(alwaysNormalize)) {
+  if (isTrue(alwaysNormalize)) { 
     normalizationType = ALWAYS_NORMALIZE;
   }
   return _createElement(context, tag, data, children, normalizationType) // 标准化后开始真正的createElemnt
@@ -3542,16 +3553,16 @@ function _createElement(
     };
     children.length = 0;
   }
-  if (normalizationType === ALWAYS_NORMALIZE) {
+  if (normalizationType === ALWAYS_NORMALIZE) { // 如果是用户传入的render函数 始终进行复杂的递归式的children标准化
     children = normalizeChildren(children);
-  } else if (normalizationType === SIMPLE_NORMALIZE) {
+  } else if (normalizationType === SIMPLE_NORMALIZE) { // 否则进行简单的,单层的,扁平初始化操作
     children = simpleNormalizeChildren(children);
   }
   var vnode, ns;
   if (typeof tag === 'string') {
     var Ctor;
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag);
-    if (config.isReservedTag(tag)) {
+    if (config.isReservedTag(tag)) { //判断当前标签是不是内置标签 
       // platform built-in elements
       if (process.env.NODE_ENV !== 'production' && isDef(data) && isDef(data.nativeOn)) {
         warn(
@@ -3564,7 +3575,8 @@ function _createElement(
         undefined, undefined, context
       );
     } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
-      // component
+      // 如果不是内置标签就再判断有没有 vnodedata (可能是渲染过的组件拥有 data 属性 ? 猜测) 最后获取子组件导出的options 十分重要!!!
+      // component 根据子组件构造器去创建组建的vnode 在构造区间的过程中会把Options通过baseCtor.extend转化成组件构造器
       vnode = createComponent(Ctor, data, context, children, tag);
     } else {
       // unknown or unlisted namespaced elements
@@ -3615,6 +3627,7 @@ function applyNS(vnode, ns, force) {
 // ref #5318
 // necessary to ensure parent re-render when deep bindings like :style and
 // :class are used on slot nodes
+// 当深度绑定（如：style和）时，必须确保父级重新渲染 :class 用于插槽节点
 function registerDeepBindings(data) {
   if (isObject(data.style)) {
     traverse(data.style);
@@ -3634,6 +3647,9 @@ function initRender(vm) {
   var renderContext = parentVnode && parentVnode.context;
   vm.$slots = resolveSlots(options._renderChildren, renderContext);
   vm.$scopedSlots = emptyObject;
+  //将createElement 绑定到此实例，以便在其中获得适当的render context。
+  // args顺序：tag、data、children、normalizationType、alwaysNoMalize
+  // 内部版本由从template编译的render使用
   // bind the createElement fn to this instance
   // so that we get proper render context inside it.
   // args order: tag, data, children, normalizationType, alwaysNormalize
@@ -3642,7 +3658,7 @@ function initRender(vm) {
     return createElement(vm, a, b, c, d, false);
   };
   // normalization is always applied for the public version, used in
-  // user-written render functions.
+  // user-written render functions. 用于用户外部调用的render函数
   vm.$createElement = function (a, b, c, d) {
     return createElement(vm, a, b, c, d, true);
   };
@@ -3675,7 +3691,8 @@ function renderMixin(Vue) {
     return nextTick(fn, this)
   };
 
-  Vue.prototype._render = function () {
+  Vue.prototype.
+  function () {
     var vm = this;
     var { render, _parentVnode } = vm.$options
     // var ref = vm.$options; // webpack + babel 会将解构表达式重新解析为ref的形式
@@ -3696,11 +3713,13 @@ function renderMixin(Vue) {
     // render self
     var vnode;
     try {
+      // maintain 维护
+      // 不需要维护堆栈，因为所有渲染fn都是彼此独立调用的。当父组件patch完毕时，将调用嵌套组件的render fn。
       // There's no need to maintain a stack because all render fns are called
       // separately from one another. Nested component's render fns are called
       // when parent component is patched.
       currentRenderingInstance = vm;
-      vnode = render.call(vm._renderProxy, vm.$createElement);
+      vnode = render.call(vm._renderProxy, vm.$createElement); // 此处的render函数就是vue-loader或者compiler解析后的render函数 (就是抽象的由字符串拼接的render函数)
     } catch (e) {
       handleError(e, vm, "render");
       // return error render result,
@@ -3717,7 +3736,7 @@ function renderMixin(Vue) {
         vnode = vm._vnode;
       }
     } finally {
-      currentRenderingInstance = null;
+      currentRenderingInstance = null; // 至此 当前组建的的所有子组件节点(占位节点)和内置元素节点都渲染完成
     }
     // if the returned array contains only a single node, allow it
     if (Array.isArray(vnode) && vnode.length === 1) {
@@ -5247,12 +5266,12 @@ function initInternalComponent(vm, options) { // 组件vm 及组件特异性的o
   }
 }
 
-function resolveConstructorOptions(Ctor) { //解析构造函数，以防在创建组件构造函数后应用全局mixin
+function resolveConstructorOptions(Ctor) { //获取最新的构造函数，以防在创建组件构造函数后应用全局mixin
   var options = Ctor.options;
   if (Ctor.super) {
     var superOptions = resolveConstructorOptions(Ctor.super);
     var cachedSuperOptions = Ctor.superOptions;
-    if (superOptions !== cachedSuperOptions) {
+    if (superOptions !== cachedSuperOptions) { // 判断当前构造器的父构造器(父构造器就是创建组件Ctor是赋值上去的)options是否发生了变化 如果没变说明当前构造器已经是最新的了 否则检测更新成最新的
       // super option changed,
       // need to resolve new options.
       Ctor.superOptions = superOptions;
@@ -6141,11 +6160,11 @@ function createPatchFunction(backend) {
   function createElm(
     vnode, // 当前组件的vnode
     insertedVnodeQueue,
-    parentElm, // 目标位置的父节点
-    refElm, // 目标位置的兄弟节点
-    nested,
-    ownerArray,
-    index
+    parentElm, // 需要插入的目标位置的父节点
+    refElm, // 需要插入的目标位置的兄弟节点
+    nested, // 如果是creatChildren 调用的创建组件dom为true
+    ownerArray, // 父组件中持有的子组件的引用数组 
+    index // 当前vnode对应的index with ownerArray
   ) {
     if (isDef(vnode.elm) && isDef(ownerArray)) {
       // This vnode was used in a previous render!
@@ -6153,6 +6172,9 @@ function createPatchFunction(backend) {
       // potential patch errors down the road when it's used as an insertion
       // reference node. Instead, we clone the node on-demand before creating
       // associated DOM element for it.
+      // 这个vnode是在以前的渲染中使用的！
+      // 现在它被用作一个新节点，当它被用作插入引用节点时，覆盖它的elm将导致潜在的补丁错误。
+      // 相反，我们先按需克隆节点，然后再为其创建相关的DOM元素。
       vnode = ownerArray[index] = cloneVNode(vnode);
     }
 
@@ -6182,16 +6204,18 @@ function createPatchFunction(backend) {
 
       vnode.elm = vnode.ns ?
         nodeOps.createElementNS(vnode.ns, tag) :
-        nodeOps.createElement(tag, vnode);
+        nodeOps.createElement(tag, vnode); // 创建dom元素
       setScope(vnode);
 
       /* istanbul ignore if */
-      {
-        createChildren(vnode, children, insertedVnodeQueue);
+      { // 这里这个奇怪的{} 也是因为打包工具转换 ES6 导致的
+        // 创建子节点 会循环每个子节点去调用createElm()
+        // insertedVnodeQueue 这个数组会将所有层级的子组件的vnode都拿到!
+        createChildren(vnode, children, insertedVnodeQueue); // 创建完当前vnode对应的所有dom元素
         if (isDef(data)) {
-          invokeCreateHooks(vnode, insertedVnodeQueue);
+          invokeCreateHooks(vnode, insertedVnodeQueue);// 执行各种钩子 更新attr 之类的
         }
-        insert(parentElm, vnode.elm, refElm);
+        insert(parentElm, vnode.elm, refElm); // 自底向上的插入真实dom节点!
       }
 
       if (process.env.NODE_ENV !== 'production' && data && data.pre) {
@@ -6213,6 +6237,8 @@ function createPatchFunction(backend) {
       if (isDef(i = i.hook) && isDef(i = i.init)) {
         i(vnode, false /* hydrating */ );
       }
+      // 在调用init hook之后，如果vnode是一个子组件，那么它应该已经创建了一个子实例并安装了它。
+      // 子组件还设置了占位符vnode的elm。在这种情况下，我们只需返回元素就可以了。
       // after calling the init hook, if the vnode is a child component
       // it should've created a child instance and mounted it. the child
       // component also has set the placeholder vnode's elm.
@@ -6286,6 +6312,7 @@ function createPatchFunction(backend) {
         checkDuplicateKeys(children);
       }
       for (var i = 0; i < children.length; ++i) {
+        // 循环创建子组件 ! 核心!
         createElm(children[i], insertedVnodeQueue, vnode.elm, null, true, children, i);
       }
     } else if (isPrimitive(vnode.text)) {
@@ -6318,12 +6345,13 @@ function createPatchFunction(backend) {
   // set scope id attribute for scoped CSS.
   // this is implemented as a special case to avoid the overhead
   // of going through the normal attribute patching process.
+  //为scoped-css设置作用域id属性。这是作为一种特殊情况来实现的，以避免执行常规属性 patch 过程的开销。
   function setScope(vnode) {
     var i;
     if (isDef(i = vnode.fnScopeId)) {
       nodeOps.setStyleScope(vnode.elm, i);
     } else {
-      var ancestor = vnode;
+      var ancestor = vnode; // ancestor 祖先
       while (ancestor) {
         if (isDef(i = ancestor.context) && isDef(i = i.$options._scopeId)) {
           nodeOps.setStyleScope(vnode.elm, i);
@@ -6594,7 +6622,7 @@ function createPatchFunction(backend) {
     }
   }
 
-  function invokeInsertHook(vnode, queue, initial) {
+  function invokeInsertHook(vnode, queue, initial) { // 延迟组件根节点的插入钩子，在元素真正插入后调用它们
     // delay insert hooks for component root nodes, invoke them after the
     // element is really inserted
     if (isTrue(initial) && isDef(vnode.parent)) {
@@ -6729,7 +6757,7 @@ function createPatchFunction(backend) {
    *  仅删除？
    */
   return function patch(oldVnode, vnode, hydrating, removeOnly) {
-    if (isUndef(vnode)) {
+    if (isUndef(vnode)) { // 删除节点 
       if (isDef(oldVnode)) {
         invokeDestroyHook(oldVnode);
       }
@@ -6739,7 +6767,7 @@ function createPatchFunction(backend) {
     var isInitialPatch = false;
     var insertedVnodeQueue = [];
 
-    if (isUndef(oldVnode)) {
+    if (isUndef(oldVnode)) { // 进行初始化操作
       // empty mount (likely as component), create new root element
       isInitialPatch = true;
       createElm(vnode, insertedVnodeQueue);

@@ -1,16 +1,16 @@
 <template>
   <tab-bar>
-    <tab-bar-item path="/home"  class='nav-xcf'>
-      <img slot="item-icon"  alt="">
-      <img slot="item-icon-active"  alt="">
+    <tab-bar-item path="/home"  class='nav-xxx'>
+      <!-- <img slot="item-icon"  alt="">
+      <img slot="item-icon-active"  alt=""> -->
       <div slot="item-text">首页</div>
     </tab-bar-item>
-    <tab-bar-item path="/category">
-      <img slot="item-icon" src="~assets/img/logo.png" alt="">
-      <img slot="item-icon-active" src="~assets/img/logo.png" alt="">
+    <tab-bar-item path="/category" class='nav-ccc'>
+      <!-- <img slot="item-icon" src="~assets/img/logo.png" alt="">
+      <img slot="item-icon-active" src="~assets/img/logo.png" alt=""> -->
       <div slot="item-text">分类</div>
     </tab-bar-item>
-    <tab-bar-item path="/cart">
+    <!-- <tab-bar-item path="/cart">
       <img slot="item-icon" src="~assets/img/logo.png" alt="">
       <img slot="item-icon-active" src="~assets/img/logo.png" alt="">
       <div slot="item-text">购物车</div>
@@ -19,7 +19,7 @@
       <img slot="item-icon" src="~assets/img/logo.png" alt="">
       <img slot="item-icon-active" src="~assets/img/logo.png" alt="">
       <div slot="item-text">我的</div>
-    </tab-bar-item>
+    </tab-bar-item> -->
   </tab-bar>
 </template>
 
