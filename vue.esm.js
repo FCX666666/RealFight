@@ -9,11 +9,11 @@
  * vm.$options.parent       等同于 vm.$parent 当前活跃vm实例 也就是父vm 也就是当前正在创建的组件的vm
  * vm.$parent               父vm(非抽象)
  * vm.$children             子vm数组
- * vm.$vnode                组件当前对应的 placeholder-vnode 
- * vm.$options._parentVnode 等同于vm.$vnode
- * vm._vnode.parent         等同于vm.$vnode
+ * vm.$vnode                组件当前对应的 placeholder-vnode  - 占位
+ * vm.$options._parentVnode 等同于vm.$vnode - 占位
+ * vm._vnode.parent         等同于vm.$vnode - 占位
  * vm._vnode.children       子vnode数组
- * vm._vnode                组件当前对应的vnode
+ * vm._vnode                组件当前对应的vnode  - 渲染vnode
  * 
  * _render() => vm.$options.render  将render函数转换成vnode
  * _update() => vm.__patch__    将vnode转换成真实的dom元素
@@ -3256,8 +3256,12 @@ function mergeProps(to, from) {
 
 /*  */
 
+// Vue.js 使用的 Virtual DOM 参考的是开源库 snabbdom，它的一个特点是在 VNode 的 patch 流程中对外暴露了各种时机的钩子函数，
+// 方便做一些额外的事情，Vue.js 也是充分利用这一点，在初始化一个 Component 类型的 VNode 的过程中实现了几个钩子函数：
 // inline hooks to be invoked on component VNodes during patch
 var componentVNodeHooks = {
+  // init 钩子通过 createComponentInstanceForVnode 创建一个 Vue 的实例，
+  // 然后调用 $mount 方法挂载子组件
   init: function init(vnode, hydrating) {
     if (
       vnode.componentInstance &&
@@ -3268,11 +3272,14 @@ var componentVNodeHooks = {
       var mountedNode = vnode; // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode);
     } else {
-      debugger
       var child = vnode.componentInstance = createComponentInstanceForVnode( // 创建当前组件的vm实例
         vnode,
         activeInstance
       );
+      // 由于组件初始化的时候是不传 el 的，因此组件是自己接管了 $mount 的过程，
+      // hydrating 为 true 一般是服务端渲染的情况，
+      // 如果只考虑客户端渲染，所以这里 $mount 相当于执行 child.$mount(undefined, false)
+      // 它最终会调用 mountComponent 方法，进而执行 vm._render() 方法：
       child.$mount(hydrating ? vnode.elm : undefined, hydrating); // 拿到组件的实例挂载到vnode.elm(elm是html中真实的dom节点)上去
     }
   },
@@ -3324,6 +3331,10 @@ var componentVNodeHooks = {
 
 var hooksToMerge = Object.keys(componentVNodeHooks);
 
+/**
+ * 主要做了三件事:
+ * 构造子类构造函数，安装组件钩子函数和实例化 vnode
+ */
 function createComponent(
   Ctor, // 导入的App对象 export default {} 其实就是通过ES6语法导出的对象 其中template已经转化成render函数了（通过vue-loader）
   data, // vnodedata
@@ -3412,6 +3423,8 @@ function createComponent(
   // install component management hooks onto the placeholder node
   installComponentHooks(data);
 
+  // 最后一步非常简单，通过 new VNode 实例化一个 vnode 并返回。
+  // 需要注意的是和普通元素节点的 vnode 不同，组件的 vnode 是****没有 children**** 的(因为是占位节点)，这点很关键
   // return a placeholder vnode
   var name = Ctor.options.name || tag;
   var vnode = new VNode(
@@ -3447,6 +3460,9 @@ function createComponentInstanceForVnode(
   return new vnode.componentOptions.Ctor(options) // 创建当前组件对应的vm实例
 }
 
+// 整个 installComponentHooks 的过程就是把 componentVNodeHooks 的钩子函数合并到 data.hook 中，
+// 在 VNode 执行 patch 的过程中执行相关的钩子函数，具体的执行我们稍后在介绍 patch 过程中会详细介绍。
+// 这里要注意的是合并策略，在合并过程中，如果某个时机的钩子已经存在 data.hook 中，那么通过执行 mergeHook 函数做合并，在最终执行的时候，依次执行这两个钩子函数即可。
 function installComponentHooks(data) {
   var hooks = data.hook || (data.hook = {});
   for (var i = 0; i < hooksToMerge.length; i++) {
@@ -3706,8 +3722,7 @@ function renderMixin(Vue) {
     return nextTick(fn, this)
   };
 
-  Vue.prototype.
-  function () {
+  Vue.prototype._render = function () {
     var vm = this;
     var { render, _parentVnode } = vm.$options
     // var ref = vm.$options; // webpack + babel 会将解构表达式重新解析为ref的形式
@@ -4138,8 +4153,14 @@ function lifecycleMixin(Vue) {
     var vm = this;
     var prevEl = vm.$el;
     var prevVnode = vm._vnode; // 首先拿到上次的vnode结果 作为patch时候的参数 如果是首次渲染 此项为空
+    // 这个 activeInstance 作用就是保持当前上下文的 Vue 实例，它是全局变量，
+    // 调用 createComponentInstanceForVnode 方法的时候获取会获取这个 活跃的vm实例，并且作为创建子vm的参数传入的。
+    // 实际上 JavaScript 是一个单线程，Vue 整个初始化是一个深度遍历的过程，在实例化子组件的过程中，
+    // 它需要知道当前上下文的 Vue 实例是什么，并把它作为子组件的父 Vue 实例。
+    // 子组件的实例化过程先会调用 initInternalComponent(vm, options) 合并 options，把 parent 存储在 vm.$options 中，
+    // 在 $mount 之前会调用 initLifecycle(vm) 方法：完成$parent 和 $children 的双向引用赋值
     var restoreActiveInstance = setActiveInstance(vm);
-    vm._vnode = vnode; // 赋予新的vnode或者初始化vnode
+    vm._vnode = vnode; // 赋予新的vnode或者初始化vnode (渲染vnode)
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
     if (!prevVnode) {
@@ -4152,6 +4173,10 @@ function lifecycleMixin(Vue) {
       // updates
       vm.$el = vm.__patch__(prevVnode, vnode);
     }
+    // 在 vm._update 的过程中，把当前的 vm 赋值给 activeInstance，返回一个闭包函数  restoreActiveInstance,执行它返回上一次的 activeInstance。
+    // 实际上， restoreActiveInstance()返回值 和当前的 vm 是一个父子关系，当一个 vm 实例完成它的所有子树的 patch过程后,
+    // activeInstance 会重新赋值为它的父实例，保证了 createComponentInstanceForVnode 整个深度遍历过程中，
+    // 在实例化子组件的时候能传入当前子组件的父 vm，并在 _init 的过程中，通过 vm.$parent 把这个父子关系保留。
     restoreActiveInstance();
     // update __vue__ reference
     if (prevEl) {
@@ -6179,6 +6204,7 @@ function createPatchFunction(backend) {
 
   var creatingElmInVPre = 0;
 
+  // createElm 的作用是通过虚拟节点创建真实的 DOM 并插入到它的父节点中。
   function createElm(
     vnode, // 当前组件的vnode
     insertedVnodeQueue,
@@ -6201,7 +6227,12 @@ function createPatchFunction(backend) {
     }
 
     vnode.isRootInsert = !nested; // for transition enter check
-    // 创建当前vnode的组件 创建当前组件的时候回去递归构建子组件
+    // createComponent 方法目的是尝试创建子组件
+    // 这里会判断 createComponent(vnode, insertedVnodeQueue, parentElm, refElm) 的返回值，如果为 true 则直接结束，
+    // 注意，这里传入的 vnode 是组件渲染的 vnode，也就是vm._vnode，
+    // 如果组件的根节点是个普通元素，那么 vm._vnode 也是普通的 vnode，
+    // 接下来的过程就是一个循环的过程了，先创建一个父节点占位符，然后再遍历所有子 VNode 递归调用 createElm，在遍历的过程中，
+    // 如果遇到子 VNode 是一个组件的 VNode，这样通过一个递归的方式就可以完整地构建了整个组件树。
     if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
       return
     }
@@ -6209,8 +6240,8 @@ function createPatchFunction(backend) {
     var data = vnode.data;
     var children = vnode.children;
     var tag = vnode.tag;
-    if (isDef(tag)) {
-      if (process.env.NODE_ENV !== 'production') {
+    if (isDef(tag)) { //   // 接下来判断 vnode 是否包含 tag，如果包含，
+      if (process.env.NODE_ENV !== 'production') { // 简单对 tag 的合法性在非生产环境下做校验，看是否是一个合法标签；
         if (data && data.pre) {
           creatingElmInVPre++;
         }
@@ -6223,20 +6254,23 @@ function createPatchFunction(backend) {
           );
         }
       }
-
+      //然后再去调用平台 DOM 的操作去创建一个占位符元素。
       vnode.elm = vnode.ns ?
         nodeOps.createElementNS(vnode.ns, tag) :
         nodeOps.createElement(tag, vnode); // 创建dom元素
       setScope(vnode);
 
       /* istanbul ignore if */
-      { // 这里这个奇怪的{} 也是因为打包工具转换 ES6 导致的
+      { // 这里这个奇怪的{} 也是因为打包工具导致的
         // 创建子节点 会循环每个子节点去调用createElm()
         // insertedVnodeQueue 这个数组会将所有层级的子组件的vnode都拿到!
         createChildren(vnode, children, insertedVnodeQueue); // 创建完当前vnode对应的所有dom元素
         if (isDef(data)) {
+          // 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 insertedVnodeQueue 中。
           invokeCreateHooks(vnode, insertedVnodeQueue);// 执行各种钩子 更新attr 之类的
         }
+        // 最后调用 insert 方法把 DOM 插入到父节点中，因为是递归调用，
+        // 子元素会优先调用 insert，所以整个 vnode 树节点的插入顺序是先子后父。
         insert(parentElm, vnode.elm, refElm); // 自底向上的插入真实dom节点!
       }
 
@@ -6253,7 +6287,7 @@ function createPatchFunction(backend) {
   }
 
   function createComponent(vnode, insertedVnodeQueue, parentElm, refElm) {
-    var i = vnode.data;
+    var i = vnode.data; // 组件类型的vnode 才会有vnodedata 接着去初始化组件
     if (isDef(i)) {
       var isReactivated = isDef(vnode.componentInstance) && i.keepAlive;
       if (isDef(i = i.hook) && isDef(i = i.init)) {
@@ -6328,6 +6362,8 @@ function createPatchFunction(backend) {
     }
   }
 
+  // createChildren遍历子vnode节点，递归调用 createElm，
+  // 这里要注意的一点是在遍历过程中会把 vnode.elm 作为父容器的 DOM 节点占位符传入。
   function createChildren(vnode, children, insertedVnodeQueue) {
     if (Array.isArray(children)) {
       if (process.env.NODE_ENV !== 'production') {
@@ -6791,6 +6827,7 @@ function createPatchFunction(backend) {
     var insertedVnodeQueue = [];
 
     if (isUndef(oldVnode)) { // 进行初始化操作
+      // 空挂载（可能是组件），创建新的根元素, 创建组件oldVnode就是undefined, 传入两个参数去创建elm
       // empty mount (likely as component), create new root element
       isInitialPatch = true;
       createElm(vnode, insertedVnodeQueue);
