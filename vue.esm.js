@@ -1623,7 +1623,7 @@ function mergeOptions( // 对于不同的属性合并策略不同
   // Only merged options has the _base property. 
   // 在子选项上应用extends和mixin，但前提是它是一个原始选项对象，而不是另一个mergeOptions调用的结果。
   // 只有合并过的选项具有_base属性。在mergeOpts之后会从父级opts将_base继承过来
-  if (!child._base) {
+  if (!child._base) { // 先递归把 extends 和 mixins 合并到 parent 上
     if (child.extends) {
       parent = mergeOptions(parent, child.extends, vm);
     }
@@ -1636,10 +1636,11 @@ function mergeOptions( // 对于不同的属性合并策略不同
 
   var options = {};
   var key;
+  // 然后遍历 parent，调用 mergeField，
   for (key in parent) { // 对于Vue（或者其他构造器，或者合并过mixin、extends的opts）的key 全部都继承到新的opts中去
     mergeField(key);
   }
-  for (key in child) {
+  for (key in child) { //然后再遍历 child，如果 key 不在 parent 的自身属性上，则调用 mergeField。
     if (!hasOwn(parent, key)) { // 对于用户传入的opts，检查Vue.options是否具有该属性，如果没有该属性，进行合并。 为了避免用户传入components、directives等属性发生覆盖
       mergeField(key);
     }
@@ -5234,20 +5235,91 @@ function initMixin(Vue) {
 
     // a flag to avoid this being observed 避免被观察
     vm._isVue = true;
+
     // merge options
-    if (options && options._isComponent) { // 初始化组件
+    /**
+     * 对于 options 的合并有 2 种方式，
+     * 1.内部子组件初始化过程通过 initInternalComponent 方式
+     * 2.外部初始化 Vue 通过 mergeOptions 
+     * 1比2的过程要快，合并完的结果保留在 vm.$options 中。
+     * 
+     * 
+     *  纵观一些库、框架的设计几乎都是类似的，自身定义了一些默认配置，同时又可以在初始化阶段传入一些定义配置，
+      * 然后去 merge 默认配置，来达到定制化不同需求的目的。
+      * 在 Vue 的场景下，会对 merge 的过程做一些精细化控制
+     */
+    if (options && options._isComponent) { // 初始化组件opts
       // 优化内部组件实例化，因为动态选项合并非常慢，并且没有任何内部组件opts需要特殊处理。
       // optimize internal component instantiation
       // since dynamic options merging is pretty slow, and none of the
       // internal component options needs special treatment.
       // 初始化内部组件 传入组件的vm 和 opts
       initInternalComponent(vm, options);
+       /**
+       * 合并后的 opts
+       * vm.$options = {
+          parent: Vue ,
+          propsData: undefined,
+          _componentTag: undefined,
+          _parentVnode: VNode,
+          _renderChildren:undefined,
+          __proto__: {
+            components: { },
+            directives: { },
+            filters: { },
+            _base: function Vue(options) {
+                //...
+            },
+            _Ctor: {},
+            created: [
+              function created() {
+                console.log('parent created')
+              }, function created() {
+                console.log('child created')
+              }
+            ],
+            mounted: [
+              function mounted() {
+                console.log('child mounted')
+              }
+            ],
+            data() {
+              return {
+                msg: 'Hello Vue'
+              }
+            },
+            template: '<div>{{msg}}</div>'
+          }
+        }
+       */
     } else { // 外部调用 new Vue(opts)
-      vm.$options = mergeOptions( // 不同字段合并策略不同
+      vm.$options = mergeOptions( // 不同字段合并策略不同 把构造器上的options拿过来进行merge操作
         resolveConstructorOptions(vm.constructor),
         options || {},
         vm
       );
+        /**
+         * 合并后的opts
+         * vm.$options = {
+            components: { },
+            created: [
+              function created() {
+                console.log('parent created')
+              }
+            ],
+            directives: { },
+            filters: { },
+            _base: function Vue(options) {
+              // ...
+            },
+            el: "#app",
+            render: function (h) {
+              //...
+            }
+          }
+         * 
+         */
+     
     }
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
@@ -5283,12 +5355,13 @@ function initMixin(Vue) {
  * initInternalComponent主要做了两件事情： 
  * 1.组件$options原型指到构造器原型上去，可以直接访问属性
  * 2.把组件依赖于父组件的props、listeners也挂载到options上，方便子组件调用。
+ * 
  */
 function initInternalComponent(vm, options) { // 组件vm 及组件特异性的opts
   // vue 在初始化组件的时候会首先得到组件的vnode 这个过程中会去创建组件的Ctor
   // 取到组件Ctor的opts 这个opts是 Vue 构造器和组件构造器(Vue.extend(opts)传入)的opts合并后的opts 
   // 然后吧组件Ctor的opts 挂到vm.$options.__proto__ （原型链继承）
-  var opts = vm.$options = Object.create(vm.constructor.options);
+  var opts = vm.$options = Object.create(vm.constructor.options); // 直接把构造器的options继承过来
   // doing this because it's faster than dynamic enumeration. 这样做是因为它比动态枚举快。
 
 
