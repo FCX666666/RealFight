@@ -12,6 +12,7 @@
  * vm.$vnode                组件当前对应的 placeholder-vnode 
  * vm.$options._parentVnode 等同于vm.$vnode
  * vm._vnode.parent         等同于vm.$vnode
+ * vm._vnode.children       子vnode数组
  * vm._vnode                组件当前对应的vnode
  * 
  * _render() => vm.$options.render  将render函数转换成vnode
@@ -2468,10 +2469,14 @@ function checkProp(
 // because functional components already normalize their own children.  
 // 当children包含组件的vnode时-因为函数式组件可能返回数组而不是单个根。在这种情况下，只需要一个简单的规范化-如果任何子元素是数组，
 // 我们就用Array.prototype.concat去进行一层的扁平化, 它保证只有1级深，因为函数式组件已经对自己的children 进行标准化。
+// simpleNormalizeChildren 方法调用场景是 render 函数是编译生成的。
+// 理论上编译生成的 children 都已经是 VNode 类型的，但这里有一个例外，就是 functional component 函数式组件返回的是一个数组而不是一个根节点，
+// 所以会通过 Array.prototype.concat 方法把整个 children 数组打平，让它的深度只有一层。
 function simpleNormalizeChildren(children) {
   for (var i = 0; i < children.length; i++) {
     if (Array.isArray(children[i])) {
-      return Array.prototype.concat.apply([], children)
+      return Array.prototype.concat.apply([], children) // apply 第二个参数接受一个数组,将作为方法的参数一次传入, 
+      // 相当于 [].concat(children[0],children[1],children[2])
     }
   }
   return children
@@ -2481,10 +2486,9 @@ function simpleNormalizeChildren(children) {
 // e.g. <template>, <slot>, v-for, or when the children is provided by user
 // with hand-written render functions / JSX. In such cases a full normalization
 // is needed to cater to all possible types of children values.
-// 当 children 的结构总是嵌套数组时，
-// 例如，<template>，<slot>，v-for，
-// 或当children由用户提供时,使用手写的render/JSX。
-// 在这种情况下，需要进行复杂的标准化,需要迎合所有可能类型的children。
+// 调用场景有 2 种，一个场景是 render 函数是用户手写的，当 children 只有一个节点的时候，
+// Vue.js 从接口层面允许用户把 children 写成基础类型用来创建单个简单的文本节点，这种情况会调用 createTextVNode 创建一个文本节点的 VNode；
+// 另一个场景是当编译 slot、v-for 的时候会产生嵌套数组的情况，会调用 normalizeArrayChildren 方法
 function normalizeChildren(children) {
   return isPrimitive(children) ? [createTextVNode(children)] :
     Array.isArray(children) ?
@@ -2496,6 +2500,11 @@ function isTextNode(node) {
   return isDef(node) && isDef(node.text) && isFalse(node.isComment)
 }
 
+// normalizeArrayChildren 接收 2 个参数，children 表示要规范的子节点，nestedIndex 表示嵌套的索引，因为单个 child 可能是一个数组类型。 
+// normalizeArrayChildren 主要的逻辑就是遍历 children，获得单个节点 c，然后对 c 的类型判断，如果是一个数组类型，则递归调用 normalizeArrayChildren;
+// 如果是基础类型，则通过 createTextVNode 方法转换成 VNode 类型；否则就已经是 VNode 类型了，如果 children 是一个列表并且列表还存在嵌套的情况，
+// 则根据 nestedIndex 去更新它的 key。这里需要注意一点，在遍历的过程中，对这 3 种情况都做了如下处理：如果存在两个连续的 text 节点，会把它们合并成一个 text 节点。
+// 经过对 children 的规范化，children 变成了一个类型为 VNode 的 Array。
 function normalizeArrayChildren(children, nestedIndex) {
   var res = [];
   var i, c, lastIndex, last;
@@ -3489,6 +3498,8 @@ var ALWAYS_NORMALIZE = 2;
 
 // wrapper function for providing a more flexible interface
 // without getting yelled at by flow
+// createElement 方法实际上是对 _createElement 方法的封装，
+// 它允许传入的参数更加灵活，在处理这些参数后，调用真正创建 VNode 的函数 _createElement：
 function createElement(
   context, // 当前渲染上下文 用当前上下文去渲染组件占位节点和常规节点 
   tag, // 这里的tag 就是当前 h=>h(App)的App的对象内容
@@ -3558,8 +3569,10 @@ function _createElement(
   } else if (normalizationType === SIMPLE_NORMALIZE) { // 否则进行简单的,单层的,扁平初始化操作
     children = simpleNormalizeChildren(children);
   }
+
+  // 处理好子节点的标准化后 最终子节点都是会vnode类型的数组
   var vnode, ns;
-  if (typeof tag === 'string') {
+  if (typeof tag === 'string') { //先对 tag 做判断，如果是 string 类型，则接着判断如果是内置的一些节点，则直接创建一个普通 VNode，
     var Ctor;
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag);
     if (config.isReservedTag(tag)) { //判断当前标签是不是内置标签 
@@ -3575,19 +3588,21 @@ function _createElement(
         undefined, undefined, context
       );
     } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
-      // 如果不是内置标签就再判断有没有 vnodedata (可能是渲染过的组件拥有 data 属性 ? 猜测) 最后获取子组件导出的options 十分重要!!!
+      // 如果是为已注册的组件名，则通过 createComponent 创建一个组件类型的 VNode，
+      // 如果不是内置标签就再判断有没有 vnodedata (可能是渲染过的组件拥有 data 属性 ? 猜测) 最后获取子组件构造器 这里的Ctor 实际上还是一个options 还没有转换成组件构造器
       // component 根据子组件构造器去创建组建的vnode 在构造区间的过程中会把Options通过baseCtor.extend转化成组件构造器
       vnode = createComponent(Ctor, data, context, children, tag);
     } else {
       // unknown or unlisted namespaced elements
       // check at runtime because it may get assigned a namespace when its
       // parent normalizes children
+      // 否则创建一个未知的标签的 VNode。 
       vnode = new VNode(
         tag, data, children,
         undefined, undefined, context
       );
     }
-  } else {
+  } else { // 如果是 tag 一个 Component 类型，则直接调用 createComponent 创建一个组件类型的 VNode 节点。
     // direct component options / constructor
     vnode = createComponent(tag, data, context, children);
   }
@@ -4116,6 +4131,9 @@ function initLifecycle(vm) { // 初始化生命周期
 }
 
 function lifecycleMixin(Vue) {
+  // Vue 的 _update 是实例的一个私有方法，它被调用的时机有 2 个，一个是首次渲染，一个是数据更新的时候；
+  // _update 方法的作用是把 VNode 渲染成真实的 DOM，
+  // _update 的核心就是调用 vm.__patch__ 方法，这个方法实际上在不同的平台，比如 web 和 weex 上的定义是不一样的，因此在 web 平台中它的定义在 src/platforms/web/runtime/index.js 中
   Vue.prototype._update = function (vnode, hydrating) {
     var vm = this;
     var prevEl = vm.$el;
@@ -4126,6 +4144,9 @@ function lifecycleMixin(Vue) {
     // based on the rendering backend used.
     if (!prevVnode) {
       // initial render
+      // 首次渲染，所以在执行 patch 函数的时候，传入的 vm.$el 对应的是例子中 id 为 app 的 真实DOM 对象，
+      // 这个也就是我们在 index.html 模板中写的 <div id="app">， vm.$el 的赋值是在 mountComponent 函数做的
+      // vnode 对应的是调用 render 函数的返回值，hydrating 在非服务端渲染情况下为 false，removeOnly 为 false。
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */ );
     } else {
       // updates
@@ -6101,6 +6122,7 @@ function createKeyToOldIdx(children, beginIdx, endIdx) {
   return map
 }
 
+// 800 行去创建patch
 function createPatchFunction(backend) {
   var i, j;
   var cbs = {};
@@ -6751,10 +6773,11 @@ function createPatchFunction(backend) {
   }
 
   /**
-   *  oldVnode   上次的vnode 初始化的时候传入的是当前的vm.$el
-   *  vnode 当前组件对应的最新的vnode
-   *  注水？
-   *  仅删除？
+   * patch 方法本身，它接收 4个参数，
+   * oldVnode 表示旧的 VNode 节点，它也可以不存在或者是一个 DOM 对象；
+   * vnode 表示执行 _render 后返回的 VNode 的节点；
+   * hydrating 表示是否是服务端渲染；
+   * removeOnly 是给 transition-group 用的
    */
   return function patch(oldVnode, vnode, hydrating, removeOnly) {
     if (isUndef(vnode)) { // 删除节点 
@@ -8816,9 +8839,18 @@ var platformModules = [
 // built-in modules have been applied.
 var modules = platformModules.concat(baseModules);
 
+// createPatchFunction 内部定义了一系列的辅助方法，最终返回了一个 patch 方法，这个方法就赋值给了 vm._update 函数里调用的 vm.__patch__。
+// 为何 Vue.js 源码绕了这么一大圈，把相关代码分散到各个目录(src vuejs系统entry目录而不是build目录)。
+// 因为patch 是平台相关的，在 Web 和 Weex 环境，它们把虚拟 DOM 映射到 “平台 DOM” 的方法是不同的，并且对 “DOM” 包括的属性模块创建和更新也不尽相同。
+// 因此每个平台都有各自的 nodeOps 和 modules，它们的代码需要托管在 src/platforms 这个大目录下。
+// 而不同平台的 patch 的主要逻辑部分是相同的(像是响应式原理啊 diff算法 对render函数的normalize 只不过因为平台的原因导致执行相同操作的代码不同了,所以需要特异性配置)是相同的，
+// 所以这部分公共的部分托管在 core 这个大目录下。差异化部分只需要通过参数来区别，这里用到了一个函数柯里化(相当于设置了局部function内的环境变量)的技巧，
+// 通过 createPatchFunction 把差异化参数提前确定下来(固化)，这样不用每次调用 patch 的时候都传递 nodeOps 和 modules 了。
+
+// nodeOps 表示对 “平台 DOM” 的一些操作方法，modules 表示平台的一些模块，它们会在整个 patch 过程的不同阶段执行相应的钩子函数。
 var patch = createPatchFunction({
-  nodeOps: nodeOps,
-  modules: modules
+  nodeOps: nodeOps, // 节点的crud操作
+  modules: modules // klass ref style ... 
 });
 
 /**
@@ -9427,6 +9459,8 @@ extend(Vue.options.directives, platformDirectives);
 extend(Vue.options.components, platformComponents);
 
 // install platform patch function
+// 在 web 平台上，是否是服务端渲染也会对这个方法产生影响。
+// 因为在服务端渲染中，没有真实的浏览器 DOM 环境，所以不需要把 VNode 最终转换成 DOM，因此是一个空函数，而在浏览器端渲染中，它指向了 patch 方法，
 Vue.prototype.__patch__ = inBrowser ? patch : noop;
 
 // public mount method
