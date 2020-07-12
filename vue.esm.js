@@ -2313,7 +2313,7 @@ function createFnInvoker(fns, vm) {
 }
 
 function updateListeners(
-  on,
+  on, // 
   oldOn,
   add,
   remove$$1,
@@ -2324,7 +2324,13 @@ function updateListeners(
   for (name in on) {
     def$$1 = cur = on[name];
     old = oldOn[name];
-    event = normalizeEvent(name);
+    // event = > {
+    //   name: name,
+    //   once: once$$1,
+    //   capture: capture,
+    //   passive: passive
+    // }
+    event = normalizeEvent(name); // 将会返回一个对象 包裹当前对象触发的方式 
     if (isUndef(cur)) {
       process.env.NODE_ENV !== 'production' && warn(
         "Invalid handler for event \"" + (event.name) + "\": got " + String(cur),
@@ -3974,9 +3980,9 @@ function getFirstComponentChild(children) {
 /*  */
 
 function initEvents(vm) {
-  vm._events = Object.create(null);
+  vm._events = Object.create(null); // 初始化事件管理中心
   vm._hasHookEvent = false;
-  // init parent attached events
+  // init parent attached events 查看当前vm.$options是不是从站位节点上继承来了listeners 如果有 为当前vm执行更新侦听器
   var listeners = vm.$options._parentListeners;
   if (listeners) {
     updateComponentListeners(vm, listeners);
@@ -4003,12 +4009,13 @@ function createOnceHandler(event, fn) {
   }
 }
 
-function updateComponentListeners(
+function updateComponentListeners( // 更新组件的额事件侦听器（从站位节点上取到了 也就是子组件$emit触发的方法）
   vm,
   listeners,
-  oldListeners
+  oldListeners // 在初始化事件调度中心的时候这个参数是false
 ) {
   target = vm;
+  // add = $on remove$1 = $off createOnceHandler = $once 初始化的时候oldlisteners是undefined 
   updateListeners(listeners, oldListeners || {}, add, remove$1, createOnceHandler, vm);
   target = undefined;
 }
@@ -4132,10 +4139,10 @@ function initLifecycle(vm) { // 初始化生命周期
     parent.$children.push(vm); //  vm之间互相添加依赖
   }
 
-  vm.$parent = parent;  //  vm之间互相添加依赖
+  vm.$parent = parent;  //  父子vm之间互相添加依赖
   vm.$root = parent ? parent.$root : vm;
 
-  vm.$children = [];
+  vm.$children = []; // 同时初始化子vm的$children
   vm.$refs = {};
 
   vm._watcher = null;
@@ -4249,6 +4256,10 @@ function lifecycleMixin(Vue) {
  * mountComponent 核心就是先实例化一个 render-Watcher，
  * 在它的回调函数中会调用 updateComponent 方法，
  * 在此方法中调用 vm._render 方法先生成虚拟 Node，最终调用 vm._update 更新 DOM。
+ * 
+ * 设计两个钩子函数： beforeMount mounted （new Watcher() 的前后）
+ * 在执行 vm._render() 函数渲染 VNode 之前，执行了 beforeMount 钩子函数，
+ * 在执行完 vm._update() 把 VNode patch 到真实 DOM 后，执行 mounted 钩子。
  */
 function mountComponent(
   vm,
@@ -4321,9 +4332,10 @@ function mountComponent(
 
   // manually mounted instance, call mounted on self
   // mounted is called for render-created child components in its inserted hook
-  if (vm.$vnode == null) {   //  vm.$vnode 表示 Vue 实例的父虚拟 Node，所以它为 Null 则表示当前是根 Vue 的实例
+  // vm.$vnode 如果为 null，则表明这不是一次组件的初始化过程，而是我们通过外部 new Vue 初始化过程。
+  if (vm.$vnode == null) {   //  vm.$vnode 表示 Vue 实例的父虚拟 Node，所以它为 Null 则表示当前是根 Vue 的实例 也就是用户newvue的过程
     vm._isMounted = true;   // 函数最后判断为根节点的时候设置 vm._isMounted 为 true， 表示这个实例已经挂载了，同时执行 mounted 钩子函数。 
-    callHook(vm, 'mounted'); // 执行一次挂载钩子
+    callHook(vm, 'mounted'); // 执行一次 new vue 上的挂载钩子
   }
   return vm
 }
@@ -4451,8 +4463,16 @@ function deactivateChildComponent(vm, direct) {
   }
 }
 
+/**
+ * 源码中最终执行生命周期的函数都是调用 callHook 方法
+ * 根据传入的字符串 hook，去拿到 vm.$options[hook] 对应的回调函数数组，
+ * 然后遍历执行，执行的时候把 vm 作为函数执行的上下文。
+ * Vue.js 合并 options 的过程，各个阶段的生命周期的函数也被合并到 vm.$options 里，并且是一个数组。
+ * 因此 callhook 函数的功能就是调用某个生命周期钩子注册的所有回调函数。
+ */
 function callHook(vm, hook) {
-  // #7573 disable dep collection when invoking lifecycle hooks 在执行声明钩子的时候取消收集依赖。 如何取消收集依赖呢？设置当前依赖收集对象为undefined Dep.target = undefined
+  // #7573 disable dep collection when invoking lifecycle hooks 
+  // 在执行声明钩子的时候取消收集依赖。 如何取消收集依赖呢？设置当前依赖收集对象为undefined Dep.target = undefined
   pushTarget();
   var handlers = vm.$options[hook];
   var info = hook + " hook";
@@ -5332,6 +5352,12 @@ function initMixin(Vue) {
     initLifecycle(vm); //初始化生命周期， 
     initEvents(vm); // 初始化事件中心
     initRender(vm); //初始化渲染，
+    // 可以看到 beforeCreate 和 created 的钩子调用是在 initState 的前后，initState 的作用是初始化 props、data、methods、watch、computed 等属性
+    // 那么显然 beforeCreate 的钩子函数中就不能获取到 props、data 中定义的值，也不能调用 methods 中定义的函数。
+    // created 钩子是最先可以使用provide和props data methods computed中的属性的钩子 
+    // 如果需要做的操作不需要这些数据 就可以直接在beforeCreated中去执行 比如说不带这些参数的接口啊 获取sessonStorage中的数据啊 等等方式
+    // created和beforeCreate 钩子调用过程中都还没有执行$mount 既没有vnode也米有dom 
+    // 所以也不能够访问 DOM， vue-router 和 vuex 都混合了 beforeCreate 钩子函数。
     callHook(vm, 'beforeCreate');
     initInjections(vm); // resolve injections before data/props
     initState(vm); // 初始化 data、props、computed、watcher 
@@ -5345,7 +5371,9 @@ function initMixin(Vue) {
       measure(("vue " + (vm._name) + " init"), startTag, endTag);
     }
 
-    if (vm.$options.el) { // 在初始化的最后，检测到如果有 el 属性，则调用 vm.$mount 方法挂载 vm，挂载的目标就是把模板渲染成最终的 DOM，
+    if (vm.$options.el) {
+      // 除了初始化 一般都是undefined 
+      // 在初始化的最后，检测到如果有 el 属性，则调用 vm.$mount 方法挂载 vm，挂载的目标就是把模板渲染成最终的 DOM， 
       vm.$mount(vm.$options.el);
     }
   };
@@ -6280,7 +6308,7 @@ function createPatchFunction(backend) {
   // createElm 的作用是通过虚拟节点创建真实的 DOM 并插入到它的父节点中。
   function createElm(
     vnode, // 当前组件的vnode
-    insertedVnodeQueue,
+    insertedVnodeQueue,// 当前vnode待插入的子节点队列 先子后父
     parentElm, // 需要插入的目标位置的父节点
     refElm, // 需要插入的目标位置的兄弟节点
     nested, // 如果是creatChildren 调用的创建组件dom为true
@@ -6339,7 +6367,7 @@ function createPatchFunction(backend) {
         // insertedVnodeQueue 这个数组会将所有层级的子组件的vnode都拿到!
         createChildren(vnode, children, insertedVnodeQueue); // 创建完当前vnode对应的所有dom元素
         if (isDef(data)) {
-          // 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 insertedVnodeQueue 中。
+          // 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 组件根vnode insertedVnodeQueue 中。
           invokeCreateHooks(vnode, insertedVnodeQueue);// 执行各种钩子 更新attr 之类的
         }
         // 最后调用 insert 方法把 DOM 插入到父节点中，因为是递归调用，
@@ -6760,6 +6788,7 @@ function createPatchFunction(backend) {
       vnode.parent.data.pendingInsert = queue;
     } else {
       for (var i = 0; i < queue.length; ++i) {
+        // insertedVnodeQueue 的添加顺序是先子后父，所以对于同步渲染的子组件而言，mounted 钩子函数的执行顺序也是先子后父。
         queue[i].data.hook.insert(queue[i]);
       }
     }
@@ -6992,6 +7021,7 @@ function createPatchFunction(backend) {
       }
     }
 
+    // 组件的 VNode patch 到 DOM 后，会执行 invokeInsertHook 函数，把 insertedVnodeQueue 里保存的钩子函数依次执行一遍，
     invokeInsertHook(vnode, insertedVnodeQueue, isInitialPatch);
     return vnode.elm
   }
