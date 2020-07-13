@@ -105,6 +105,15 @@ import App from './App.vue'
 //   error:require('@/assets/img/logo.png'),//加載失敗
 //   loading:require('@/assets/img/logo.png')//加載中
 // })
+
+Vue.component('my-cpn',{
+  name:'MyCpn',
+  data:()=>({
+    name:'zhangSan'
+  }),
+  template:'<div> just simple component for component funciton,name:{{name}} </div>'
+})
+
 new Vue({
   render: h => h(App),
   // router,

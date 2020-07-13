@@ -1671,19 +1671,23 @@ function resolveAsset(
   }
   var assets = options[type];
   // check local registration variations first
-  if (hasOwn(assets, id)) {
+  if (hasOwn(assets, id)) { // 现在本地环境下寻找当前的资源
     return assets[id]
   }
   var camelizedId = camelize(id);
-  if (hasOwn(assets, camelizedId)) {
+  if (hasOwn(assets, camelizedId)) { // 尝试寻找camel格式的id对对应的资源
     return assets[camelizedId]
   }
-  var PascalCaseId = capitalize(camelizedId);
+  var PascalCaseId = capitalize(camelizedId); // 常使寻找pascal格式的id对应的资源
   if (hasOwn(assets, PascalCaseId)) {
     return assets[PascalCaseId]
   }
   // fallback to prototype chain
-  var res = assets[id] || assets[camelizedId] || assets[PascalCaseId];
+  // 总体的思路就是先查局部在查全局
+  // 实际上获取的全局资源 
+  // 那么全局的资源是如何挂到原型链上呢 ? 在使用Vue.component的时候通过 this.options._base.extend() 去链接
+  // 如果在当前option找不到当前对应的资源 就去原型链中查找 按照 id > camel > pascal格式的优先级去寻找当前资源
+  var res = assets[id] || assets[camelizedId] || assets[PascalCaseId]; 
   if (process.env.NODE_ENV !== 'production' && warnMissing && !res) {
     warn(
       'Failed to resolve ' + type.slice(0, -1) + ': ' + id,
@@ -5592,6 +5596,7 @@ function initComputed$1(Comp) {
 
 /*  */
 
+// 为Vue.options添加一些静态资源 包括:component directive filter
 function initAssetRegisters(Vue) {
   /**
    * Create asset registration methods.
@@ -5601,7 +5606,7 @@ function initAssetRegisters(Vue) {
       id,
       definition
     ) {
-      if (!definition) {
+      if (!definition) { // 如果第二个组件构造器没有传 就直接从Vue.options中去找到当前组件构造器 如果没有就是undefined
         return this.options[type + 's'][id]
       } else {
         /* istanbul ignore if */
@@ -5610,7 +5615,7 @@ function initAssetRegisters(Vue) {
         }
         if (type === 'component' && isPlainObject(definition)) {
           definition.name = definition.name || id;
-          definition = this.options._base.extend(definition);
+          definition = this.options._base.extend(definition); // 通过Vue.extend()去构建一个当前{}的组件构造器 把Vue的全局组件继承过来
         }
         if (type === 'directive' && typeof definition === 'function') {
           definition = {
@@ -5618,8 +5623,8 @@ function initAssetRegisters(Vue) {
             update: definition
           };
         }
-        this.options[type + 's'][id] = definition;
-        return definition
+        this.options[type + 's'][id] = definition;// 注意 this指向Vue,实际上全局注册的过滤器和组件和指令都是在Vue.options中进行全局拓展
+        return definition 
       }
     };
   });

@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <main-tab-bar></main-tab-bar>
+    <my-cpn></my-cpn>
     <!-- <router-view></router-view> -->
   </div>
 </template>
