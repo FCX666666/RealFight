@@ -1,4 +1,3 @@
-
 // import Vue from 'vue'
 // import FastClick from 'fastclick'
 // FastClick.attach(document.body)
@@ -106,14 +105,19 @@ import App from './App.vue'
 //   loading:require('@/assets/img/logo.png')//加載中
 // })
 
-Vue.component('my-cpn',{
-  name:'MyCpn',
-  data:()=>({
-    name:'zhangSan'
-  }),
-  template:'<div> just simple component for component funciton,name:{{name}} </div>'
+Vue.component('my-cpn', function (resolve, reject) {
+  setTimeout(() => {
+    resolve({
+      name: 'MyCpn',
+      data: () => ({
+        name: 'zhangSan'
+      }),
+      template: '<div> just simple component for component funciton,name:{{name}} </div>'
+    })
+  }, 5000);
 })
 
+debugger
 new Vue({
   render: h => h(App),
   // router,

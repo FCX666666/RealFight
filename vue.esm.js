@@ -122,10 +122,12 @@ function toNumber(val) {
 }
 
 /**
+ * // 通过传入的字串 ,返回一个函数,持有一个闭包,闭包中创建了一个map 
+ * 包含若干个{key:Boolean}其中的key对应当前传入的字符串的每一项,用来检测用户传入的字串在不在map中  
  * Make a map and return a function for checking if a key
  * is in that map.
  */
-function makeMap(
+function makeMap( 
   str,
   expectsLowerCase
 ) {
@@ -186,7 +188,8 @@ function cached(fn) { // 维持一个闭包 闭包里面保存当前方法执行
 }
 
 /**
- * Camelize a hyphen-delimited string.
+ * a-b => aB
+ * Camelize a hyphen-delimited string. 
  */
 var camelizeRE = /-(\w)/g;
 var camelize = cached(function (str) {
@@ -196,13 +199,15 @@ var camelize = cached(function (str) {
 });
 
 /**
- * Capitalize a string.
+ * aB => AB
+ * Capitalize a string. 
  */
 var capitalize = cached(function (str) {
   return str.charAt(0).toUpperCase() + str.slice(1)
 });
 
 /**
+ * zhangSan => zhang-san
  * Hyphenate a camelCase string.
  */
 var hyphenateRE = /\B([A-Z])/g;
@@ -219,7 +224,7 @@ var hyphenate = cached(function (str) {
  */
 
 /* istanbul ignore next */
-function polyfillBind(fn, ctx) {
+function polyfillBind(fn, ctx) { // polyfill for bind
   function boundFn(a) {
     var l = arguments.length;
     return l ?
@@ -242,9 +247,10 @@ var bind = Function.prototype.bind ?
   polyfillBind;
 
 /**
+ * 类数组转数组
  * Convert an Array-like object to a real Array.
  */
-function toArray(list, start) {
+function toArray(list, start) { 
   start = start || 0;
   var i = list.length - start;
   var ret = new Array(i);
@@ -255,6 +261,7 @@ function toArray(list, start) {
 }
 
 /**
+ * 第二个对象属性继承到第一个参数
  * Mix properties into target object.
  */
 function extend(to, _from) {
@@ -265,9 +272,10 @@ function extend(to, _from) {
 }
 
 /**
+ * 把多个对象合并成一个对象
  * Merge an Array of Objects into a single Object.
  */
-function toObject(arr) {
+function toObject(arr) { 
   var res = {};
   for (var i = 0; i < arr.length; i++) {
     if (arr[i]) {
@@ -303,6 +311,7 @@ var identity = function (_) {
 };
 
 /**
+ * [style klass model]
  * Generate a string containing static keys from compiler modules.
  */
 function genStaticKeys(modules) {
@@ -698,6 +707,10 @@ if (process.env.NODE_ENV !== 'production') {
     )
   };
 
+  
+  /**
+   * String.prototype.repeat.call(str,n)
+   */
   var repeat = function (str, n) {
     var res = '';
     while (n) {
@@ -707,11 +720,14 @@ if (process.env.NODE_ENV !== 'production') {
       if (n > 1) {
         str += str;
       }
-      n >>= 1;
+      n >>= 1; // n = n >> 1
     }
     return res
   };
 
+  /**
+   * 组件堆栈信息
+   */
   generateComponentTrace = function (vm) {
     if (vm._isVue && vm.$parent) {
       var tree = [];
@@ -803,7 +819,7 @@ function popTarget() {
   Dep.target = targetStack[targetStack.length - 1];
 }
 
-/*  */
+/* Vnode */
 
 var VNode = function VNode(
   tag,
@@ -1210,6 +1226,8 @@ function dependArray(value) {
  * Option overwriting strategies are functions that handle
  * how to merge a parent option value and a child option
  * value into the final value.
+ * 
+ * 从全局配置中获取options合并策略
  */
 var strats = config.optionMergeStrategies;
 
