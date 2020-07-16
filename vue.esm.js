@@ -1718,7 +1718,17 @@ function resolveAsset(
 /*  */
 
 
-
+/**
+ *  进行初始化 对每一个定义在组件中的props进行初始化
+ * 策略：
+ * 1. 判断当前key在不在props中如果不在，就看hyp化的key在不在props中
+ * 2. 如果在props中找不到当前key 就对当前attrs进行相同操作，查找props的值
+ * 
+ * @param {*} key 
+ * @param {*} propOptions 
+ * @param {*} propsData 
+ * @param {*} vm 
+ */
 function validateProp(
   key,
   propOptions,
@@ -4920,7 +4930,10 @@ function proxy(target, sourceKey, key) {
   };
   Object.defineProperty(target, key, sharedPropertyDefinition);
 }
-
+/**
+ * 初始化props data computed watch
+ * @param {*} vm 
+ */
 function initState(vm) {
   vm._watchers = [];
   var opts = vm.$options;
@@ -4943,6 +4956,12 @@ function initState(vm) {
   }
 }
 
+/**
+ * 1.代理this._props.key => this.key
+ * 2.设置props为响应式
+ * @param {*} vm 
+ * @param {*} propsOptions export.default.props
+ */
 function initProps(vm, propsOptions) {
   var propsData = vm.$options.propsData || {};
   var props = vm._props = {};
@@ -4956,6 +4975,7 @@ function initProps(vm, propsOptions) {
   }
   var loop = function (key) {
     keys.push(key);
+    // 对每个props值进行类型匹配和推测
     var value = validateProp(key, propsOptions, propsData, vm);
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
