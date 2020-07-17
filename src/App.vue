@@ -1,10 +1,10 @@
 <template>
   <div id="app">
     <!-- <div v-if="isShow"> -->
-      <my-cpn></my-cpn>
+      <!-- <my-cpn :cool='i'></my-cpn> -->
     <!-- </div> -->
     <button @click="show">click</button>
-    <!-- <main-tab-bar></main-tab-bar> -->
+    <main-tab-bar cool='i'  ></main-tab-bar>
     <!-- <router-view></router-view> -->
   </div>
 </template>
@@ -14,7 +14,8 @@ import MainTabBar from "components/content/MainTabBar";
 export default {
   name: "app",
   data: () => ({
-    isShow: false
+    isShow: false,
+    i:'i am not on my-cpns props'
   }),
   components: {
     MainTabBar

@@ -1726,14 +1726,17 @@ function validateProp(
   vm
 ) {
   var prop = propOptions[key];
+  // 判断当前key值是不是在propsData本身的属性 首先判断占位节点的 啊绑定进来的队对象中包不包含当前key
   var absent = !hasOwn(propsData, key);
+  // 拿到value值 有可能是原型链上的属性
   var value = propsData[key];
   // boolean casting
+  // 首先判断当前传入的prop是不是布尔类型的 
   var booleanIndex = getTypeIndex(Boolean, prop.type);
-  if (booleanIndex > -1) {
-    if (absent && !hasOwn(prop, 'default')) {
+  if (booleanIndex > -1) { // 如是布尔类型
+    if (absent && !hasOwn(prop, 'default')) { // 如果传入的props 每个default 就直接赋值为false
       value = false;
-    } else if (value === '' || value === hyphenate(key)) {
+    } else if (value === '' || value === hyphenate(key)) { // 如果传入的type时boolean 但是 传入的却是个字符串类相关
       // only cast empty string / same name to boolean if
       // boolean has higher priority
       var stringIndex = getTypeIndex(String, prop.type);
@@ -1873,9 +1876,9 @@ function assertType(value, type) {
 }
 
 /**
- * Use function string name to check built-in types,
- * because a simple equality check will fail when running
- * across different vms / iframes.
+ * 构造器类型检查
+ * for ex :
+ *    getType(function Some(){}) => "Some"
  */
 function getType(fn) {
   var match = fn && fn.toString().match(/^\s*function (\w+)/);
@@ -1886,6 +1889,11 @@ function isSameType(a, b) {
   return getType(a) === getType(b)
 }
 
+/**
+ * @param type {Function} 一个强制类型
+ * @param expectedTypes {Function | Array} 在使用props时传入的类型
+ * @returns i {number}  得到首个对应类型的index 没有找到 返回-1
+ */
 function getTypeIndex(type, expectedTypes) {
   if (!Array.isArray(expectedTypes)) {
     return isSameType(expectedTypes, type) ? 0 : -1
@@ -2414,8 +2422,14 @@ function mergeVNodeHook(def, hookKey, hook) {
   def[hookKey] = invoker;
 }
 
-/*  */
 
+/**
+ * 
+ * @param {VnodeData} data vnode数据对象 vue-loader编译之后的结果
+ * @param {ComponentnsConstructor} Ctor 组件构造器 
+ * @param {String} tag 组件name或者使用组建的名称
+ * @returns {Object} 返回props结果 优先获取props的内容 如果未找到 会在attrs中进行查找
+ */
 function extractPropsFromVNodeData(
   data,
   Ctor,
@@ -2450,13 +2464,24 @@ function extractPropsFromVNodeData(
           );
         }
       }
+      // 首先在props查找 如果没有就会在attrs进行查找 
+      // 带有: 会编译成props  没有: 会编译成attrs 
+      // 只要是定义在组件的props属性中的,会在占位节点attr和props进行查找,合并到props中去
+      // props优先级更高
       checkProp(res, props, key, altKey, true) ||
         checkProp(res, attrs, key, altKey, false);
     }
   }
   return res
 }
-
+/**
+ * 
+ * @param {*} res propsData
+ * @param {*} hash attr 或者 props
+ * @param {*} key key
+ * @param {*} altKey 短横连接的key
+ * @param {*} preserve props-true attr-false
+ */
 function checkProp(
   res,
   hash,
@@ -2465,13 +2490,14 @@ function checkProp(
   preserve
 ) {
   if (isDef(hash)) {
-    if (hasOwn(hash, key)) {
+    if (hasOwn(hash, key)) { // 首先获取key 
       res[key] = hash[key];
-      if (!preserve) {
+      if (!preserve) { // vnodedata.attrs上的当前属性
         delete hash[key];
       }
       return true
-    } else if (hasOwn(hash, altKey)) {
+    } else if (hasOwn(hash, altKey)) {// 第二优先级获取 hyphenated key 
+      // 这里也就表明在组件内部定义props可以定义为camel 在组占位处可以用使用hyphenated 的形式去绑定值也同样可以取到 但是如果绑定俩 就被高优先级的覆盖
       res[key] = hash[altKey];
       if (!preserve) {
         delete hash[altKey];
@@ -3821,6 +3847,9 @@ function renderMixin(Vue) {
 
 /*  */
 
+/**
+ * 获取组件的构造器
+ */
 function ensureCtor(comp, base) {
   if (
     comp.__esModule ||
@@ -3851,39 +3880,48 @@ function createAsyncPlaceholder(
   return node
 }
 
+/**
+ * 获取异步组件或者异步组件的占位节点
+ * 传入工厂函数和组件_base
+ */
 function resolveAsyncComponent(
   factory,
   baseCtor
 ) {
+  // 判断高阶组件选项
   if (isTrue(factory.error) && isDef(factory.errorComp)) {
     return factory.errorComp
   }
 
+  // 判断异步组件是否已经决议过了 如果决议过了 直接将当前异步组件的构造器返回
   if (isDef(factory.resolved)) {
     return factory.resolved
   }
 
+  // 确定当前异步组件的渲染的vm
   var owner = currentRenderingInstance;
   if (owner && isDef(factory.owners) && factory.owners.indexOf(owner) === -1) {
     // already pending
+    // 保存当前异步组件所有使用的地方
     factory.owners.push(owner);
   }
 
+  // 判断高阶组件的loading
   if (isTrue(factory.loading) && isDef(factory.loadingComp)) {
     return factory.loadingComp
   }
 
+  // 第一次渲染异步组件进入
   if (owner && !isDef(factory.owners)) {
     var owners = factory.owners = [owner];
     var sync = true;
     var timerLoading = null;
-    var timerTimeout = null
-
-    ;
+    var timerTimeout = null;
     (owner).$on('hook:destroyed', function () {
       return remove(owners, owner);
     });
 
+    // 强制刷新拥有异步组建的组件重新渲染 将异步获取到的组件构造器渲染到页面上去
     var forceRender = function (renderCompleted) {
       for (var i = 0, l = owners.length; i < l; i++) {
         (owners[i]).$forceUpdate();
@@ -3927,6 +3965,9 @@ function resolveAsyncComponent(
 
     var res = factory(resolve, reject);
 
+    // 处理函数
+    // 处理promise
+    // 处理严格对象类型的高阶异步组件
     if (isObject(res)) {
       if (isPromise(res)) {
         // () => Promise
@@ -4921,6 +4962,9 @@ function proxy(target, sourceKey, key) {
   Object.defineProperty(target, key, sharedPropertyDefinition);
 }
 
+/**
+ * 初始化响应式系统 props methods data ...
+ */
 function initState(vm) {
   vm._watchers = [];
   var opts = vm.$options;
@@ -4943,19 +4987,27 @@ function initState(vm) {
   }
 }
 
+/**
+ * props 的初始化主要过程，就是遍历定义的 props 配置。
+ * 遍历的过程主要做两件事情：一个是调用 defineReactive 方法把每个 prop 对应的值变成响应式，
+ * 另一个是通过 proxy() 把 vm._props.xxx 的访问代理到 vm.xxx 上，
+ */
 function initProps(vm, propsOptions) {
-  var propsData = vm.$options.propsData || {};
-  var props = vm._props = {};
+  var propsData = vm.$options.propsData || {}; // 组件占位节点传入的props 
+  var props = vm._props = {}; // 组件options上的_props (将会被vm自身代理)
   // cache prop keys so that future props updates can iterate using Array
   // instead of dynamic object key enumeration.
+  // 缓存propskeys到数组中去 就可以使用数组的遍历 而不用使用对象的动态枚举
   var keys = vm.$options._propKeys = [];
   var isRoot = !vm.$parent;
   // root instance props should be converted
+  // 如果不是跟组件的话就调用...
   if (!isRoot) {
     toggleObserving(false);
   }
   var loop = function (key) {
     keys.push(key);
+    // 将值转换成对应类型
     var value = validateProp(key, propsOptions, propsData, vm);
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
