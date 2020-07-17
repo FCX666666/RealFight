@@ -19,7 +19,7 @@
  * _update() => vm.__patch__    将vnode转换成真实的dom元素
  * 
  */
- 
+
 
 
 var emptyObject = Object.freeze({});
@@ -127,7 +127,7 @@ function toNumber(val) {
  * Make a map and return a function for checking if a key
  * is in that map.
  */
-function makeMap( 
+function makeMap(
   str,
   expectsLowerCase
 ) {
@@ -250,7 +250,7 @@ var bind = Function.prototype.bind ?
  * 类数组转数组
  * Convert an Array-like object to a real Array.
  */
-function toArray(list, start) { 
+function toArray(list, start) {
   start = start || 0;
   var i = list.length - start;
   var ret = new Array(i);
@@ -275,7 +275,7 @@ function extend(to, _from) {
  * 把多个对象合并成一个对象
  * Merge an Array of Objects into a single Object.
  */
-function toObject(arr) { 
+function toObject(arr) {
   var res = {};
   for (var i = 0; i < arr.length; i++) {
     if (arr[i]) {
@@ -707,7 +707,7 @@ if (process.env.NODE_ENV !== 'production') {
     )
   };
 
-  
+
   /**
    * String.prototype.repeat.call(str,n)
    */
@@ -954,7 +954,7 @@ methodsToPatch.forEach(function (method) {
         inserted = args.slice(2);
         break
     }
-    if (inserted) {
+    if (inserted) { // 为当前插入的数组注册观察者
       ob.observeArray(inserted);
     }
     // notify change
@@ -978,24 +978,25 @@ function toggleObserving(value) {
 }
 
 /**
- * Observer class that is attached to each observed
- * object. Once attached, the observer converts the target
- * object's property keys into getter/setters that
- * collect dependencies and dispatch updates.
+ * 附加到每个被观察对象的__ob__。
+ * 附加后，观察者将目标对象的属性键转换为getter/setter，实现收集依赖项并分派更新
+ * @param {*} value 需要被观察的对象
  */
 var Observer = function Observer(value) {
   this.value = value; // 需要注册ob的值 ob.value => value
-  this.dep = new Dep(); // 为当前ob添加依赖对象 其二：注册ob时候创建依赖对象 当前dep供当前ob使用 这个dep是针对整个对象的 
-  this.vmCount = 0;
+  this.dep = new Dep(); // 为当前ob添加依赖对象dep,dep中持有订阅当前观察者的watcher
+  this.vmCount = 0; // 记录当前ob观察的vm数量
   def(value, '__ob__', this); // 为value对象添加ob value.__ob__ => ob
-  if (Array.isArray(value)) {
-    if (hasProto) {
-      protoAugment(value, arrayMethods);
+  if (Array.isArray(value)) { // 检查是不是Array类型
+    if (hasProto) { // 检查当前浏览器是否支持__proto__ 
+      protoAugment(value, arrayMethods); // 如果当前传入的对象是数组类型 就直接通过__proto__指向数组拦截层对象 (可以使操作数据对象时候可以达到响应式的效果)
     } else {
       copyAugment(value, arrayMethods, arrayKeys);
     }
+    // 为数组元素注册观察者
     this.observeArray(value);
   } else {
+    // 最终 每个value对象都将走到这里
     this.walk(value);
   }
 };
@@ -1004,6 +1005,10 @@ var Observer = function Observer(value) {
  * Walk through all properties and convert them into
  * getter/setters. This method should only be called when
  * value type is Object.
+ * 
+ * 把对象的每一个属性都转化成getter setter存取的方式
+ * 并在getter和setter中去进行依赖收集和dom更新
+ * 把每一个属性都定义成响应式
  */
 Observer.prototype.walk = function walk(obj) {
   var keys = Object.keys(obj);
@@ -1050,20 +1055,28 @@ function copyAugment(target, src, keys) {
  * returns the new observer if successfully observed,
  * or the existing observer if the value already has one.
  */
+/**
+ * 尝试为一个值创建一个观察者实例，如果观察成功，返回新的观察者，如果值已经有一个观察者，则返回现有的观察者。
+ * @param {Object} value 接受对象|primitive  虽然primitive会直接return 
+ * @param {Boolean} asRootData 是不是作为vm._data传进来的 
+ */
 function observe(value, asRootData) {
+  // 如果传入的需要观察的值不是一个对象 或者是一个Vnode类型的对象 都会直接return
   if (!isObject(value) || value instanceof VNode) {
     return
   }
   var ob;
+  // 首先检查当前对象包不包含自己的__ob__ 如果有直接返回当前对象的__ob__
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
     ob = value.__ob__;
   } else if (
-    shouldObserve &&
-    !isServerRendering() &&
+    shouldObserve && // 当前状态是不是可观察的
+    !isServerRendering() && // 是不是服务器端渲染的
     (Array.isArray(value) || isPlainObject(value)) && // 检测当前value值必须是严格对象或者是数组才会为其注册外层ob，然后添加dep。
-    Object.isExtensible(value) &&
-    !value._isVue
+    Object.isExtensible(value) && // 查看当前对象是不是可扩展的
+    !value._isVue // 最后检测当前值不是vue实例 避免去观察vm
   ) {
+    // 直接new ob 最后返回ob
     ob = new Observer(value);
   }
   if (asRootData && ob) { // 如果当前是作为rootdata传进来 也就是说当前传入vm._data
@@ -1073,7 +1086,13 @@ function observe(value, asRootData) {
 }
 
 /**
+ * 把obj[key]转化成响应式的属性
  * Define a reactive property on an Object.
+ * @param {*} obj data props 等需要设置响应式的属性
+ * @param {*} key 属性对应的key
+ * @param {*} val 属性值
+ * @param {*} customSetter 
+ * @param {*} shallow 浅层的响应式
  */
 function defineReactive$$1(
   obj,
@@ -1082,8 +1101,10 @@ function defineReactive$$1(
   customSetter,
   shallow
 ) {
-  var dep = new Dep(); // 其一：定义响应式添加依赖对象Dep，当前依赖对象供当前对象的值使用 **这里的dep是针对对象中的primative值得。**
+  // 其一：定义响应式添加依赖对象Dep，当前依赖对象供当前对象的值使用 这里的dep是针对对象中的primative值。
+  var dep = new Dep();
 
+  // 首先获取到当前属性的descriptor 查看当前属性是不是可配置的 如果false 直接return
   var property = Object.getOwnPropertyDescriptor(obj, key);
   if (property && property.configurable === false) {
     return
@@ -1092,10 +1113,12 @@ function defineReactive$$1(
   // cater for pre-defined getter/setters
   var getter = property && property.get;
   var setter = property && property.set;
+  // Observer.prototype.walk 执行会进入这里面
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key];
   }
 
+  // 如果未传入shallow或者传入false
   var childOb = !shallow && observe(val);
   Object.defineProperty(obj, key, {
     enumerable: true,
@@ -1351,7 +1374,7 @@ strats.data = function (
  * Hooks and props are merged as arrays.
  */
 function mergeHook( // 生命周期钩子函数最终会合并成数组 进行相同名字的合并
-  parentVal,// [created(){}]
+  parentVal, // [created(){}]
   childVal // created(){} | [created(){}]
 ) {
   var res = childVal ? // 判断当前子钩子有没有 如果没有直接返回父的对应钩子函数
@@ -1705,7 +1728,7 @@ function resolveAsset(
   // 实际上获取的全局资源 
   // 那么全局的资源是如何挂到原型链上呢 ? 在使用Vue.component的时候通过 this.options._base.extend() 去链接
   // 如果在当前option找不到当前对应的资源 就去原型链中查找 按照 id > camel > pascal格式的优先级去寻找当前资源
-  var res = assets[id] || assets[camelizedId] || assets[PascalCaseId]; 
+  var res = assets[id] || assets[camelizedId] || assets[PascalCaseId];
   if (process.env.NODE_ENV !== 'production' && warnMissing && !res) {
     warn(
       'Failed to resolve ' + type.slice(0, -1) + ': ' + id,
@@ -1743,12 +1766,15 @@ function validateProp(
   // boolean casting
   // 首先判断当前传入的prop是不是布尔类型的 
   var booleanIndex = getTypeIndex(Boolean, prop.type);
-  if (booleanIndex > -1) { // 如是布尔类型
+  if (booleanIndex > -1) { // 如过当前prop.type是布尔类型或者传入了个数组中包含prop.type props = { name:{type:[Boolean,String]} }
     if (absent && !hasOwn(prop, 'default')) { // 如果传入的props 每个default 就直接赋值为false
       value = false;
-    } else if (value === '' || value === hyphenate(key)) { // 如果传入的type时boolean 但是 传入的却是个字符串类相关
+    } else if (value === '' || value === hyphenate(key)) { // 如果传入的type时boolean 但是 传入的却是个字符串类 传入的空串或者是传入props的名字 没错 转换成true(checked => checked='chekced')
       // only cast empty string / same name to boolean if
       // boolean has higher priority
+      // 如果设置了当前prop的类型数组中包含String 就进行优先级判别  Boolean的优先级是高于String的
+      // 如果类型数组中没有找到String 就直接返回true
+      // 如果找到了String 就比较String 和Boolean 的index 如果Boolean的index小于String 直接返回true 否则字符串传了啥就返回啥
       var stringIndex = getTypeIndex(String, prop.type);
       if (stringIndex < 0 || booleanIndex < stringIndex) {
         value = true;
@@ -2506,7 +2532,7 @@ function checkProp(
         delete hash[key];
       }
       return true
-    } else if (hasOwn(hash, altKey)) {// 第二优先级获取 hyphenated key 
+    } else if (hasOwn(hash, altKey)) { // 第二优先级获取 hyphenated key 
       // 这里也就表明在组件内部定义props可以定义为camel 在组占位处可以用使用hyphenated 的形式去绑定值也同样可以取到 但是如果绑定俩 就被高优先级的覆盖
       res[key] = hash[altKey];
       if (!preserve) {
@@ -3415,7 +3441,7 @@ function createComponent(
 
   // plain options object: turn it into a constructor // 普通选项对象：将其转换为组件构造器构造函数
   if (isObject(Ctor)) {
-    Ctor = baseCtor.extend(Ctor);// 实际上相当于是拿到了一些基础的options和一些策略函数
+    Ctor = baseCtor.extend(Ctor); // 实际上相当于是拿到了一些基础的options和一些策略函数
   }
 
   // if at this stage it's not a constructor or an async component factory,
@@ -3462,7 +3488,7 @@ function createComponent(
   var propsData = extractPropsFromVNodeData(data, Ctor, tag);
 
   // functional component 判断是不是函数时组件 如果是直接创建函数式组件
-  if (isTrue(Ctor.options.functional)) { 
+  if (isTrue(Ctor.options.functional)) {
     return createFunctionalComponent(Ctor, propsData, data, context, children)
   }
 
@@ -3594,7 +3620,7 @@ function createElement(
     children = data;
     data = undefined;
   }
-  if (isTrue(alwaysNormalize)) { 
+  if (isTrue(alwaysNormalize)) {
     normalizationType = ALWAYS_NORMALIZE;
   }
   return _createElement(context, tag, data, children, normalizationType) // 标准化后开始真正的createElemnt
@@ -3789,7 +3815,10 @@ function renderMixin(Vue) {
 
   Vue.prototype._render = function () {
     var vm = this;
-    var { render, _parentVnode } = vm.$options
+    var {
+      render,
+      _parentVnode
+    } = vm.$options
     // var ref = vm.$options; // webpack + babel 会将解构表达式重新解析为ref的形式
     // var render = ref.render;
     // var _parentVnode = ref._parentVnode;
@@ -3801,7 +3830,7 @@ function renderMixin(Vue) {
         vm.$scopedSlots
       );
     }
- 
+
     // set parent vnode. this allows render functions to have access 设置父vnode。
     // to the data on the placeholder node. 允许渲染函数访问占位符(_parentVnode)节点上的数据
     vm.$vnode = _parentVnode;
@@ -4204,7 +4233,7 @@ function initLifecycle(vm) { // 初始化生命周期
   var options = vm.$options;
 
   // locate first non-abstract parent 确定第一个非抽象父节点
-  var parent = options.parent; 
+  var parent = options.parent;
   if (parent && !options.abstract) {
     while (parent.$options.abstract && parent.$parent) { // 如果当前父节点的opts配置了当前节点是抽象的并且还拥有父vm，向上一层，继续判断，直到得到第一个非抽象节点。
       parent = parent.$parent;
@@ -4212,7 +4241,7 @@ function initLifecycle(vm) { // 初始化生命周期
     parent.$children.push(vm); //  vm之间互相添加依赖
   }
 
-  vm.$parent = parent;  //  父子vm之间互相添加依赖
+  vm.$parent = parent; //  父子vm之间互相添加依赖
   vm.$root = parent ? parent.$root : vm;
 
   vm.$children = []; // 同时初始化子vm的$children
@@ -4324,7 +4353,7 @@ function lifecycleMixin(Vue) {
     }
   };
 }
-  
+
 /**
  * mountComponent 核心就是先实例化一个 render-Watcher，
  * 在它的回调函数中会调用 updateComponent 方法，
@@ -4371,7 +4400,7 @@ function mountComponent(
       var startTag = "vue-perf-start:" + id;
       var endTag = "vue-perf-end:" + id;
 
-      mark(startTag); 
+      mark(startTag);
       var vnode = vm._render(); // 拿到当前vm对应的vnode
       mark(endTag);
       measure(("vue " + name + " render"), startTag, endTag);
@@ -4406,8 +4435,8 @@ function mountComponent(
   // manually mounted instance, call mounted on self
   // mounted is called for render-created child components in its inserted hook
   // vm.$vnode 如果为 null，则表明这不是一次组件的初始化过程，而是我们通过外部 new Vue 初始化过程。
-  if (vm.$vnode == null) {   //  vm.$vnode 表示 Vue 实例的父虚拟 Node，所以它为 Null 则表示当前是根 Vue 的实例 也就是用户newvue的过程
-    vm._isMounted = true;   // 函数最后判断为根节点的时候设置 vm._isMounted 为 true， 表示这个实例已经挂载了，同时执行 mounted 钩子函数。 
+  if (vm.$vnode == null) { //  vm.$vnode 表示 Vue 实例的父虚拟 Node，所以它为 Null 则表示当前是根 Vue 的实例 也就是用户newvue的过程
+    vm._isMounted = true; // 函数最后判断为根节点的时候设置 vm._isMounted 为 true， 表示这个实例已经挂载了，同时执行 mounted 钩子函数。 
     callHook(vm, 'mounted'); // 执行一次 new vue 上的挂载钩子
   }
   return vm
@@ -5018,7 +5047,7 @@ function initProps(vm, propsOptions) {
   }
   var loop = function (key) {
     keys.push(key);
-    // 对每个props值进行类型匹配和推测
+    // 对每个props值进行类型匹配和转换
     var value = validateProp(key, propsOptions, propsData, vm);
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
@@ -5058,6 +5087,8 @@ function initProps(vm, propsOptions) {
 
 function initData(vm) {
   var data = vm.$options.data;
+  // 首先判断data是不是function 如果是 执行函数  如果不是 直接返回data 
+  // (如果是非function类型的额将会导致所有的使用该组件的地方相互影响 - 引用传递)
   data = vm._data = typeof data === 'function' ?
     getData(data, vm) :
     data || {};
@@ -5074,7 +5105,7 @@ function initData(vm) {
   var props = vm.$options.props;
   var methods = vm.$options.methods;
   var i = keys.length;
-  while (i--) {
+  while (i--) { // 检查props中和method中有没有对当前data中的key进行定义
     var key = keys[i];
     if (process.env.NODE_ENV !== 'production') {
       if (methods && hasOwn(methods, key)) {
@@ -5090,7 +5121,7 @@ function initData(vm) {
         "Use prop default value instead.",
         vm
       );
-    } else if (!isReserved(key)) {
+    } else if (!isReserved(key)) { // 最后判断是不是保留字 - 以$ _ 开头的属性 , 然后进行代理
       proxy(vm, "_data", key);
     }
   }
@@ -5350,8 +5381,8 @@ function initMixin(Vue) {
      * 
      * 
      *  纵观一些库、框架的设计几乎都是类似的，自身定义了一些默认配置，同时又可以在初始化阶段传入一些定义配置，
-      * 然后去 merge 默认配置，来达到定制化不同需求的目的。
-      * 在 Vue 的场景下，会对 merge 的过程做一些精细化控制
+     * 然后去 merge 默认配置，来达到定制化不同需求的目的。
+     * 在 Vue 的场景下，会对 merge 的过程做一些精细化控制
      */
     if (options && options._isComponent) { // 初始化组件opts
       // 优化内部组件实例化，因为动态选项合并非常慢，并且没有任何内部组件opts需要特殊处理。
@@ -5360,71 +5391,71 @@ function initMixin(Vue) {
       // internal component options needs special treatment.
       // 初始化内部组件 传入组件的vm 和 opts
       initInternalComponent(vm, options);
-       /**
-       * 合并后的 opts
-       * vm.$options = {
-          parent: Vue ,
-          propsData: undefined,
-          _componentTag: undefined,
-          _parentVnode: VNode,
-          _renderChildren:undefined,
-          __proto__: {
-            components: { },
-            directives: { },
-            filters: { },
-            _base: function Vue(options) {
-                //...
-            },
-            _Ctor: {},
-            created: [
-              function created() {
-                console.log('parent created')
-              }, function created() {
-                console.log('child created')
-              }
-            ],
-            mounted: [
-              function mounted() {
-                console.log('child mounted')
-              }
-            ],
-            data() {
-              return {
-                msg: 'Hello Vue'
-              }
-            },
-            template: '<div>{{msg}}</div>'
-          }
-        }
-       */
+      /**
+      * 合并后的 opts
+      * vm.$options = {
+         parent: Vue ,
+         propsData: undefined,
+         _componentTag: undefined,
+         _parentVnode: VNode,
+         _renderChildren:undefined,
+         __proto__: {
+           components: { },
+           directives: { },
+           filters: { },
+           _base: function Vue(options) {
+               //...
+           },
+           _Ctor: {},
+           created: [
+             function created() {
+               console.log('parent created')
+             }, function created() {
+               console.log('child created')
+             }
+           ],
+           mounted: [
+             function mounted() {
+               console.log('child mounted')
+             }
+           ],
+           data() {
+             return {
+               msg: 'Hello Vue'
+             }
+           },
+           template: '<div>{{msg}}</div>'
+         }
+       }
+      */
     } else { // 外部调用 new Vue(opts)
       vm.$options = mergeOptions( // 不同字段合并策略不同 把构造器上的options拿过来进行merge操作
         resolveConstructorOptions(vm.constructor),
         options || {},
         vm
       );
-        /**
-         * 合并后的opts
-         * vm.$options = {
-            components: { },
-            created: [
-              function created() {
-                console.log('parent created')
-              }
-            ],
-            directives: { },
-            filters: { },
-            _base: function Vue(options) {
-              // ...
-            },
-            el: "#app",
-            render: function (h) {
-              //...
+      /**
+       * 合并后的opts
+       * vm.$options = {
+          components: { },
+          created: [
+            function created() {
+              console.log('parent created')
             }
+          ],
+          directives: { },
+          filters: { },
+          _base: function Vue(options) {
+            // ...
+          },
+          el: "#app",
+          render: function (h) {
+            //...
           }
-         * 
-         */
-     
+        }
+       * 
+       */
+
     }
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
@@ -5578,7 +5609,7 @@ function initUse(Vue) {
 function initMixin$1(Vue) {
   Vue.mixin = function (mixin) { // 通过 mergeOption s往Vue去扩展一些东西
     // 合并mixin上的属性到Vue.options上去，之后再去new Vue时候会再次将已通过Vue.mixin扩充过得Vue构造器的opts与用户传入的options进行mergeOptions合并到实例vm.$options
-    this.options = mergeOptions(this.options, mixin); 
+    this.options = mergeOptions(this.options, mixin);
     return this
   };
 }
@@ -5704,8 +5735,8 @@ function initAssetRegisters(Vue) {
             update: definition
           };
         }
-        this.options[type + 's'][id] = definition;// 注意 this指向Vue,实际上全局注册的过滤器和组件和指令都是在Vue.options中进行全局拓展
-        return definition 
+        this.options[type + 's'][id] = definition; // 注意 this指向Vue,实际上全局注册的过滤器和组件和指令都是在Vue.options中进行全局拓展
+        return definition
       }
     };
   });
@@ -6394,7 +6425,7 @@ function createPatchFunction(backend) {
   // createElm 的作用是通过虚拟节点创建真实的 DOM 并插入到它的父节点中。
   function createElm(
     vnode, // 当前组件的vnode
-    insertedVnodeQueue,// 当前vnode待插入的子节点队列 先子后父
+    insertedVnodeQueue, // 当前vnode待插入的子节点队列 先子后父
     parentElm, // 需要插入的目标位置的父节点
     refElm, // 需要插入的目标位置的兄弟节点
     nested, // 如果是creatChildren 调用的创建组件dom为true
@@ -6454,7 +6485,7 @@ function createPatchFunction(backend) {
         createChildren(vnode, children, insertedVnodeQueue); // 创建完当前vnode对应的所有dom元素
         if (isDef(data)) {
           // 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 组件根vnode insertedVnodeQueue 中。
-          invokeCreateHooks(vnode, insertedVnodeQueue);// 执行各种钩子 更新attr 之类的
+          invokeCreateHooks(vnode, insertedVnodeQueue); // 执行各种钩子 更新attr 之类的
         }
         // 最后调用 insert 方法把 DOM 插入到父节点中，因为是递归调用，
         // 子元素会优先调用 insert，所以整个 vnode 树节点的插入顺序是先子后父。
@@ -12636,10 +12667,10 @@ var idToTemplate = cached(function (id) { // 缓存方法
 });
 
 var mount = Vue.prototype.$mount;
-  //这段代码首先缓存了原型上的 $mount 方法，再重新定义该方法。
-  // 最后，调用原先原型上的 $mount 方法挂载。
-  // 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  
-  // return mountComponent(this, el, hydrating)
+//这段代码首先缓存了原型上的 $mount 方法，再重新定义该方法。
+// 最后，调用原先原型上的 $mount 方法挂载。
+// 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  
+// return mountComponent(this, el, hydrating)
 Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然后暴露给用户一个新的$mount 默认不注水  return mountComponent(this, el, hydrating)
   el,
   hydrating
@@ -12678,7 +12709,7 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
         }
         return this
       }
-    } else if (el) {  // 如果没有传入template 就直接获取el.innerHTML作template 最终这个template还会挂载到el上去
+    } else if (el) { // 如果没有传入template 就直接获取el.innerHTML作template 最终这个template还会挂载到el上去
       template = getOuterHTML(el);
     }
     if (template) {
@@ -12698,7 +12729,7 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
       }, this);
       var render = ref.render;
       var staticRenderFns = ref.staticRenderFns;
-      options.render = render; 
+      options.render = render;
       options.staticRenderFns = staticRenderFns;
 
       /* istanbul ignore if */
@@ -12716,33 +12747,33 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
  * of SVG elements in IE as well.
  */
 
- /**
-  * 
-  * 
-  * <div id="test">
-      <span style="color:red">test1</span> test2
-    </div>
-    <a href="javascript:alert(test.innerHTML)">innerHTML内容</a>
-    <a href="javascript:alert(test.innerText)">inerHTML内容</a>
-    <a href="javascript:alert(test.outerHTML)">outerHTML内容</a> 
-  * test.innerHTML:
-      　　也就是从对象的起始位置到终止位置的全部内容,包括Html标签。
-      　　上例中的test.innerHTML的值也就是“<span style="color:red">test1</span> test2 ”。
-    test.innerText:
-      　　从起始位置到终止位置的内容, 但它去除Html标签
-      　　上例中的text.innerTest的值也就是“test1 test2”, 其中span标签去除了。
-    test.outerHTML:
-      　　除了包含innerHTML的全部内容外, 还包含对象标签本身。
-      　　上例中的text.outerHTML的值也就是<div id="test"><span style="color:red">test1</span> test2</div>
+/**
+ * 
+ * 
+ * <div id="test">
+     <span style="color:red">test1</span> test2
+   </div>
+   <a href="javascript:alert(test.innerHTML)">innerHTML内容</a>
+   <a href="javascript:alert(test.innerText)">inerHTML内容</a>
+   <a href="javascript:alert(test.outerHTML)">outerHTML内容</a> 
+ * test.innerHTML:
+     　　也就是从对象的起始位置到终止位置的全部内容,包括Html标签。
+     　　上例中的test.innerHTML的值也就是“<span style="color:red">test1</span> test2 ”。
+   test.innerText:
+     　　从起始位置到终止位置的内容, 但它去除Html标签
+     　　上例中的text.innerTest的值也就是“test1 test2”, 其中span标签去除了。
+   test.outerHTML:
+     　　除了包含innerHTML的全部内容外, 还包含对象标签本身。
+     　　上例中的text.outerHTML的值也就是<div id="test"><span style="color:red">test1</span> test2</div>
 
-  */
+ */
 function getOuterHTML(el) {
   if (el.outerHTML) {
     return el.outerHTML
-  } else {// shim 实际上也是获得el本身的html的所有内容
+  } else { // shim 实际上也是获得el本身的html的所有内容
     var container = document.createElement('div');
     container.appendChild(el.cloneNode(true));
-    return container.innerHTML 
+    return container.innerHTML
   }
 }
 
