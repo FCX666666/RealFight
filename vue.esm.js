@@ -782,6 +782,7 @@ Dep.prototype.removeSub = function removeSub(sub) {
 };
 
 Dep.prototype.depend = function depend() {
+  // 在当前的渲染Watcher添加当前dep对象
   if (Dep.target) {
     Dep.target.addDep(this);
   }
@@ -1101,7 +1102,7 @@ function defineReactive$$1(
   customSetter,
   shallow
 ) {
-  // 其一：定义响应式添加依赖对象Dep，当前依赖对象供当前对象的值使用 这里的dep是针对对象中的primative值。
+  // 定义响应式添加依赖对象Dep，当前依赖对象供当前对象的值使用 这里的dep是针对对象中的primative值。
   var dep = new Dep();
 
   // 首先获取到当前属性的descriptor 查看当前属性是不是可配置的 如果false 直接return
@@ -1113,20 +1114,47 @@ function defineReactive$$1(
   // cater for pre-defined getter/setters
   var getter = property && property.get;
   var setter = property && property.set;
-  // Observer.prototype.walk 执行会进入这里面
+  // new Observer()=> this.walk(value) 执行会进入这里面
+  // 其他场景val都是有值的
   if ((!getter || setter) && arguments.length === 2) {
     val = obj[key];
   }
 
   // 如果未传入shallow或者传入false
   var childOb = !shallow && observe(val);
+  // 每一个getter setter 都会持有一个闭包变量dep
+  // 对象的每一个属性都有自己的dep
+  // 调用时机:在vue-loader或者用户传入的render函数中
+  /**
+   * 
+   * _c(
+   *    "div", // tag
+   *    { attrs: { id: "app" } }, // vnodedata
+   *    [ // children vnode
+   *      // 注意 当页面上存在 {{isShow}} 会被渲染成_vm.isShow 传入进来 
+   *      // 此时data props method computed已经初始化到了当前vm上去
+   *      // 此时将会触发此处的getter 并传入页面中需要初始化的isShow值
+   *      _vm._v(" " + _vm._s(_vm.isShow) + " "), 
+   *      _c(
+   *          "button", 
+   *          { on: { click: _vm.show } }, 
+   *          [_vm._v("click")]
+   *        ),
+   *      _c(
+   *          "main-tab-bar",
+   *          { attrs: { cool: "i" } }
+   *        )
+   *    ],
+   *    1)
+   */
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
     get: function reactiveGetter() {
       var value = getter ? getter.call(obj) : val;
+      // Dep.target一直指向targetStack的栈顶元素
       if (Dep.target) {
-        dep.depend();
+        dep.depend(); // 核心:收集依赖
         if (childOb) {
           childOb.dep.depend();
           if (Array.isArray(value)) {
@@ -1155,6 +1183,7 @@ function defineReactive$$1(
       } else {
         val = newVal;
       }
+      // 以防传入对象之后无法响应式 直接为传入的newVal注册__ob__
       childOb = !shallow && observe(newVal);
       dep.notify();
     }
@@ -1232,6 +1261,8 @@ function del(target, key) {
 /**
  * Collect dependencies on array elements when the array is touched, since
  * we cannot intercept array element access like property getters.
+ * 收集数组每个元素的依赖 因为不能通过getter拦截访问去收集依赖
+ * obeserveArray()的时候已经为每个数组元素(非primitive)添加了__ob__ 需要为__ob__depend递归进行依赖收集
  */
 function dependArray(value) {
   for (var e = (void 0), i = 0, l = value.length; i < l; i++) {
@@ -4418,7 +4449,7 @@ function mountComponent(
 
 
   // Watcher 在这里起到两个作用，
-  // 1. 初始化的时候会执行回调函数
+  // 1. 初始化的时候会执行updateComponent回调函数
   // 2. 当 vm 实例中的监测的数据发生变化的时候执行回调函数
   // we set this to vm._watcher inside the watcher's constructor 我们在观察者的构造函数中设置为vm._watcher，
   // since the watcher's initial patch may call $forceUpdate (e.g. inside child 因为观察者的初始补丁可能调用$forceUpdate（例如在子组件的挂载钩子中）
@@ -4574,7 +4605,7 @@ function deactivateChildComponent(vm, direct) {
  */
 function callHook(vm, hook) {
   // #7573 disable dep collection when invoking lifecycle hooks 
-  // 在执行声明钩子的时候取消收集依赖。 如何取消收集依赖呢？设置当前依赖收集对象为undefined Dep.target = undefined
+  // 在执行声明钩子的时候取消收集依赖。
   pushTarget();
   var handlers = vm.$options[hook];
   var info = hook + " hook";
@@ -4779,6 +4810,7 @@ function queueWatcher(watcher) {
 var uid$2 = 0;
 
 /**
+ *
  * A watcher parses an expression, collects dependencies,
  * and fires callback when the expression value changes.
  * This is used for both the $watch() api and directives.
@@ -4837,6 +4869,10 @@ var Watcher = function Watcher(
 };
 
 /**
+ *  new Wacther()最终会触发这个get方法
+ * 1. 设置当前依赖目标 Dep.target 为当前watcher
+ * 2. 然后去执行当前vm对应的_render()=>_update()
+ * 3. 执行完vnode和dom初始化后,Dep.target 退回到targetStack栈顶元素
  * Evaluate the getter, and re-collect dependencies.
  */
 Watcher.prototype.get = function get() {
@@ -4865,14 +4901,20 @@ Watcher.prototype.get = function get() {
 
 /**
  * Add a dependency to this directive.
+ * watcher中会持有很多个dep对象
+ * 每个dep对象将对应一个响应式的属性 props 或者 data 
+ * 也可能一个属性的dep被添加多次? 由于在页面上引用多次 就会编译出多个当前属性的引用 
+ * 于是出发了多个getter 但是在addDep的过程中进行了做去重
+ * 
  */
 Watcher.prototype.addDep = function addDep(dep) {
   var id = dep.id;
-  if (!this.newDepIds.has(id)) {
+  if (!this.newDepIds.has(id)) { // 判断当前watch的deps添加过了没有 
+    // 将当前dep.id和dep本身的引用全部添加到watcher的引用数组中去
     this.newDepIds.add(id);
     this.newDeps.push(dep);
-    if (!this.depIds.has(id)) {
-      dep.addSub(this);
+    if (!this.depIds.has(id)) { // 如果当前老dep中没有当前watcher 
+      dep.addSub(this); // 添加当前watcher到dep中去 (双向持有引用)
     }
   }
 };
@@ -5013,7 +5055,7 @@ function initState(vm) {
   if (opts.methods) {
     initMethods(vm, opts.methods);
   }
-  if (opts.data) {
+  if (opts.data) { // 为data递归添加了__ob__ 在创建__ob__的过程中会defrective方法进行响应式转换
     initData(vm);
   } else {
     observe(vm._data = {}, true /* asRootData */ ); // 传入vm._data asRootData = true
@@ -5041,7 +5083,7 @@ function initProps(vm, propsOptions) {
   var keys = vm.$options._propKeys = [];
   var isRoot = !vm.$parent;
   // root instance props should be converted
-  // 如果不是跟组件的话就调用...
+  // 如果不是根组件的话就不去new Observer
   if (!isRoot) {
     toggleObserving(false);
   }

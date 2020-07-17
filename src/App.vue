@@ -3,8 +3,9 @@
     <!-- <div v-if="isShow"> -->
       <!-- <my-cpn :cool='i'></my-cpn> -->
     <!-- </div> -->
+    {{isShow}}
     <button @click="show">click</button>
-    <main-tab-bar cool='i'  ></main-tab-bar>
+    <main-tab-bar cool='i'></main-tab-bar>
     <!-- <router-view></router-view> -->
   </div>
 </template>
