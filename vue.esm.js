@@ -2096,13 +2096,14 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
   // Use MutationObserver where native Promise is not available,
   // e.g. PhantomJS, iOS7, Android 4.4
   // (#6466 MutationObserver is unreliable in IE11)
+  // 设置一段看似无聊的代码 其实意在直接触发mutationObserver的异步机制
   var counter = 1;
   var observer = new MutationObserver(flushCallbacks);
   var textNode = document.createTextNode(String(counter));
   observer.observe(textNode, {
     characterData: true
   });
-  timerFunc = function () {
+  timerFunc = function () { // 直接改变text.data就会触发flushCallbacks
     counter = (counter + 1) % 2;
     textNode.data = String(counter);
   };
