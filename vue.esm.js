@@ -1011,7 +1011,7 @@ var Observer = function Observer(value) {
  * 并在getter和setter中去进行依赖收集和dom更新
  * 把每一个属性都定义成响应式
  */
-Observer.prototype.walk = function walk(obj) {
+Observer.prototype.walk = function walk(obj) { 
   var keys = Object.keys(obj);
   for (var i = 0; i < keys.length; i++) {
     defineReactive$$1(obj, keys[i]);
@@ -1096,7 +1096,7 @@ function observe(value, asRootData) {
  * @param {*} shallow 浅层的响应式
  */
 function defineReactive$$1(
-  obj,
+  obj, // obj 本身有自己的__ob__ => __ob__.value 指向obj本身 __ob__.dep指向当前ob持有的dep
   key,
   val,
   customSetter,
@@ -1120,7 +1120,7 @@ function defineReactive$$1(
     val = obj[key];
   }
 
-  // 如果未传入shallow或者传入false
+  // 如果未传入shallow或者传入false 这里拿到的使val.__ob__.dep
   var childOb = !shallow && observe(val);
   // 每一个getter setter 都会持有一个闭包变量dep
   // 对象的每一个属性都有自己的dep
@@ -1154,10 +1154,10 @@ function defineReactive$$1(
       var value = getter ? getter.call(obj) : val;
       // Dep.target一直指向targetStack的栈顶元素
       if (Dep.target) {
-        dep.depend(); // 核心:收集依赖
-        if (childOb) {
-          childOb.dep.depend();
-          if (Array.isArray(value)) {
+        dep.depend(); // 核心:收集依赖 将当前属性对应的dep添加到Dep.target
+        if (childOb) { // 判断当前val本身是否为对象或数组类型 如果是的话就拥有自己的ob  就会拿到其__ob__ 完成深层的响应式
+          childOb.dep.depend(); // 拿到当前val对应的__ob__.dep传入到当前Dep.target的依赖数组中去 所有的dep 都将被添加到当前的渲染Watcher中去 如此一来就完成了深层的依赖收集
+          if (Array.isArray(value)) { // 如果是数组 对数组元素进行依次依赖收集
             dependArray(value);
           }
         }
@@ -4913,8 +4913,8 @@ Watcher.prototype.addDep = function addDep(dep) {
     // 将当前dep.id和dep本身的引用全部添加到watcher的引用数组中去
     this.newDepIds.add(id);
     this.newDeps.push(dep);
-    if (!this.depIds.has(id)) { // 如果当前老dep中没有当前watcher 
-      dep.addSub(this); // 添加当前watcher到dep中去 (双向持有引用)
+    if (!this.depIds.has(id)) { // 如果当前当前watcher 的dep中没有当前dep.id
+      dep.addSub(this); // 当前watcher添加到dep中去 (双向持有引用)
     }
   }
 };
