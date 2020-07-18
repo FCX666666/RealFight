@@ -788,8 +788,12 @@ Dep.prototype.depend = function depend() {
   }
 };
 
+/**
+ * 派发更新
+ */
 Dep.prototype.notify = function notify() {
   // stabilize the subscriber list first
+  // 浅拷贝一层订阅者 也就是watcher数组
   var subs = this.subs.slice();
   if (process.env.NODE_ENV !== 'production' && !config.async) {
     // subs aren't sorted in scheduler if not running async
@@ -799,6 +803,7 @@ Dep.prototype.notify = function notify() {
       return a.id - b.id;
     });
   }
+  // 遍历watcher依次更新视图
   for (var i = 0, l = subs.length; i < l; i++) {
     subs[i].update();
   }
@@ -4690,21 +4695,22 @@ if (inBrowser && !isIE) {
 }
 
 /**
+ * 去把wathcer数组进行排序并完成dom更新
  * Flush both queues and run the watchers.
  */
 function flushSchedulerQueue() {
   currentFlushTimestamp = getNow();
-  flushing = true;
+  flushing = true; // 标记当前正在清空watcher队列
   var watcher, id;
 
   // Sort queue before flush.
   // This ensures that:
   // 1. Components are updated from parent to child. (because parent is always
-  //    created before the child)
+  //    created before the child) 组件更新是从父到子 保证父的watcher在前边 子的watcher在后边（id 顺序）
   // 2. A component's user watchers are run before its render watcher (because
-  //    user watchers are created before the render watcher)
+  //    user watchers are created before the render watcher) 用户自定义的watch:{} 或者 vm.$watch() 会创建user-watcher 这些需要在渲染watcher前边 
   // 3. If a component is destroyed during a parent component's watcher run,
-  //    its watchers can be skipped.
+  //    its watchers can be skipped. 如果当前组件的销毁是在父组件的watcher中执行的，就可以通过执行父组件watcher
   queue.sort(function (a, b) {
     return a.id - b.id;
   });
@@ -4713,13 +4719,14 @@ function flushSchedulerQueue() {
   // as we run existing watchers
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index];
-    if (watcher.before) {
+    if (watcher.before) { //更新前回调?
       watcher.before();
     }
     id = watcher.id;
     has[id] = null;
+    // 
     watcher.run();
-    // in dev build, check and stop circular updates.
+    // in dev build, check and stop circular updates. 防止循环调用 导致无限循环的bug
     if (process.env.NODE_ENV !== 'production' && has[id] != null) {
       circular[id] = (circular[id] || 0) + 1;
       if (circular[id] > MAX_UPDATE_COUNT) {
@@ -4791,25 +4798,33 @@ function queueWatcher(watcher) {
   var id = watcher.id;
   if (has[id] == null) {
     has[id] = true;
-    if (!flushing) {
-      queue.push(watcher);
-    } else {
+    if (!flushing) { // 如果当前没有正在执行watcher任务队列 
+      queue.push(watcher); //watcher 入队
+    } else { // 正在执行watcher任务队列
       // if already flushing, splice the watcher based on its id
       // if already past its id, it will be run next immediately.
       var i = queue.length - 1;
+      // 在queue中找到当前watcher应该在的位置 不断对比id和当前queue中的元素的id 吧当前wathcer插到对应位置 依然按照wathcer.id的顺序
+      // 假设当前queue正在flushing queue.length = 5 > watcher.id = 3 
+      // 开始循环 首先判断当前wathcer的id是不是已经过号了 比如当前执行的wathcer.update已经是4了 但是传入的3说明已经更新过id <= 3的watcher了 就算插入也不会执行了 没有意义了 所以直接插入到队尾
+      // 当wathcer的id大于队列的wathcer中最大的id 理所应当应该插入在queue的队尾
+      // 其他情况 需要查找到当前还未执行的队列部分并把当前的watcher插入到合适的位置 等待flush
       while (i > index && queue[i].id > watcher.id) {
         i--;
       }
+      // 插入！
       queue.splice(i + 1, 0, watcher);
     }
     // queue the flush
-    if (!waiting) {
+    if (!waiting) { // 请空任务队列 同步或者异步 仅执行一次
       waiting = true;
 
+      // config.async 是可以全局配置的 用来指定当前dom的更新策略 默认是异步更新 生产环境下只能异步更新
       if (process.env.NODE_ENV !== 'production' && !config.async) {
         flushSchedulerQueue();
         return
       }
+      // 在下一个事件循环去执行dom更新 依次执行wathcer中的update方法
       nextTick(flushSchedulerQueue);
     }
   }
@@ -4819,7 +4834,7 @@ function queueWatcher(watcher) {
 
 
 
-var uid$2 = 0;
+var uid$2 = 0; // 每个wathcer的唯一ID  在更新wathcer的过程中会根据这个id进行排序 以便完成父=》子顺序更新
 
 /**
  *
@@ -4960,7 +4975,7 @@ Watcher.prototype.update = function update() {
   /* istanbul ignore else */
   if (this.lazy) {
     this.dirty = true;
-  } else if (this.sync) {
+  } else if (this.sync) { // 判断当前是同步？ 如果是 直接执行wathcer.run
     this.run();
   } else {
     queueWatcher(this);
@@ -4973,6 +4988,7 @@ Watcher.prototype.update = function update() {
  */
 Watcher.prototype.run = function run() {
   if (this.active) {
+    // 数据已经通过用户的操作修改过了 通过触发watcher的run方法 继而触发get方法触发 _render() => _update()
     var value = this.get();
     if (
       value !== this.value ||
@@ -4985,9 +5001,9 @@ Watcher.prototype.run = function run() {
       // set new value
       var oldValue = this.value;
       this.value = value;
-      if (this.user) {
+      if (this.user) { // 判断是不是 user-watcher
         try {
-          this.cb.call(this.vm, value, oldValue);
+          this.cb.call(this.vm, value, oldValue); // 这里是调用的用户的回调watcher 会传入新值和旧值
         } catch (e) {
           handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
         }
@@ -5950,7 +5966,7 @@ function initGlobalAPI(Vue) {
       );
     };
   }
-  Object.defineProperty(Vue, 'config', configDef);
+  Object.defineProperty(Vue, 'config', configDef); // 提供全局访问的config 用以配置Vue.config
 
   // exposed util methods.
   // NOTE: these are not considered part of the public API - avoid relying on
