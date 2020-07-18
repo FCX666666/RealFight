@@ -4699,7 +4699,7 @@ if (inBrowser && !isIE) {
  * Flush both queues and run the watchers.
  */
 function flushSchedulerQueue() {
-  currentFlushTimestamp = getNow();
+  currentFlushTimestamp = getNow(); // 获取当前flush时间戳
   flushing = true; // 标记当前正在清空watcher队列
   var watcher, id;
 
@@ -4715,16 +4715,18 @@ function flushSchedulerQueue() {
     return a.id - b.id;
   });
 
-  // do not cache length because more watchers might be pushed
-  // as we run existing watchers
-  for (index = 0; index < queue.length; index++) {
+  // do not cache length because more watchers might be pushed 
+  // as we run existing watchers 
+  // 需要不断的获取queue.length 因为可能会在queueWatcher的过程中不断添加wathcer 所以不能缓存 就像 len = queue.length
+  // 在不断添加的过程中 只会在queue当前循环到的位置之后添加 所以不会影响前边的
+  for (index = 0; index < queue.length; index++) { // 不断遍历全局的index 将会影响queueWatcher的添加
     watcher = queue[index];
-    if (watcher.before) { //更新前回调?
+    if (watcher.before) { //更新前回调 hook:beforeUpdate
       watcher.before();
     }
     id = watcher.id;
-    has[id] = null;
-    // 
+    has[id] = null; // 将哈希表中的当前id置空 也就说说明当前queue已经执行了当前wathcer
+    // run
     watcher.run();
     // in dev build, check and stop circular updates. 防止循环调用 导致无限循环的bug
     if (process.env.NODE_ENV !== 'production' && has[id] != null) {
@@ -4747,11 +4749,12 @@ function flushSchedulerQueue() {
   var activatedQueue = activatedChildren.slice();
   var updatedQueue = queue.slice();
 
+  // 初始化
   resetSchedulerState();
 
   // call component updated and activated hooks
-  callActivatedHooks(activatedQueue);
-  callUpdatedHooks(updatedQueue);
+  callActivatedHooks(activatedQueue);// 执行 hook:activated 钩子
+  callUpdatedHooks(updatedQueue); // 执行 hook:updated 钩子
 
   // devtool hook
   /* istanbul ignore if */
@@ -4760,11 +4763,15 @@ function flushSchedulerQueue() {
   }
 }
 
+/**
+ * 执行updated钩子
+ */
 function callUpdatedHooks(queue) {
   var i = queue.length;
   while (i--) {
     var watcher = queue[i];
     var vm = watcher.vm;
+    //  判断当前队列中的watcer的vm中的_watcher === 当前wathcer本身 就代表 当前wathcer是组建的渲染wathcer 于是执行更新后个钩子方法
     if (vm._watcher === watcher && vm._isMounted && !vm._isDestroyed) {
       callHook(vm, 'updated');
     }
@@ -4797,7 +4804,7 @@ function callActivatedHooks(queue) {
 function queueWatcher(watcher) {
   var id = watcher.id;
   if (has[id] == null) {
-    has[id] = true;
+    has[id] = true; // 每次添加的时候都会讲哈希表中的当前watcher.id 进行标记 防止循环
     if (!flushing) { // 如果当前没有正在执行watcher任务队列 
       queue.push(watcher); //watcher 入队
     } else { // 正在执行watcher任务队列
