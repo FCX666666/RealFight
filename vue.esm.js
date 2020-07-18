@@ -982,6 +982,9 @@ function toggleObserving(value) {
  * 附加到每个被观察对象的__ob__。
  * 附加后，观察者将目标对象的属性键转换为getter/setter，实现收集依赖项并分派更新
  * @param {*} value 需要被观察的对象
+ * 
+ * observer -- 每个observer本身（ 实例属性）拥有一个 dep
+ * observer.value-- observer观察的对象的每个属性值都创建一个闭包保存的 dep
  */
 var Observer = function Observer(value) {
   this.value = value; // 需要注册ob的值 ob.value => value
@@ -998,6 +1001,7 @@ var Observer = function Observer(value) {
     this.observeArray(value);
   } else {
     // 最终 每个value对象都将走到这里
+    // 为当前observe(val)传入对象的每个属性创建响应式
     this.walk(value);
   }
 };
@@ -1089,7 +1093,13 @@ function observe(value, asRootData) {
 /**
  * 把obj[key]转化成响应式的属性
  * Define a reactive property on an Object.
- * @param {*} obj data props 等需要设置响应式的属性
+ * 不断去循环为每个属性创建响应式 ，大致分为两种情况
+ * 1.如果属性值是非primitive类型的 为当前属性值对应的对象注册一个observer并拿到它 在注册oberver的时候又会递归调用defineReactive去为对象创建响应式 实际上是个深度遍历的过程
+ * 2.如果是一个primitive类型 就直接为该属性创建getter setter 准备进行依赖手机和dom更新
+ * 在整个响应式定义过程中 
+ * 1.经过defineReactive处理的属性值都将拥有一个闭包的dep
+ * 2.对于非primitive会注册observer，在这个observer上边会持有一个实例属性dep
+ * @param {*} obj 某个属性对象或者是 data props 等需要设置响应式的属性的对象
  * @param {*} key 属性对应的key
  * @param {*} val 属性值
  * @param {*} customSetter 
@@ -1102,7 +1112,7 @@ function defineReactive$$1(
   customSetter,
   shallow
 ) {
-  // 定义响应式添加依赖对象Dep，当前依赖对象供当前对象的值使用 这里的dep是针对对象中的primative值。
+  // 定义响应式添加依赖对象Dep，当前依赖对象供当前对象的值使用
   var dep = new Dep();
 
   // 首先获取到当前属性的descriptor 查看当前属性是不是可配置的 如果false 直接return
@@ -1120,7 +1130,8 @@ function defineReactive$$1(
     val = obj[key];
   }
 
-  // 如果未传入shallow或者传入false 这里拿到的使val.__ob__.dep
+  // 如果未传入shallow或者传入false就去拿到val对应的observer
+  // 这里拿到的是val.__ob__
   var childOb = !shallow && observe(val);
   // 每一个getter setter 都会持有一个闭包变量dep
   // 对象的每一个属性都有自己的dep
