@@ -31,6 +31,15 @@
     components: {
       TabBar,
       TabBarItem
+    },
+    mounted(){
+      console.dir(this.cool+'    ***   i got it!')
+    },
+    props:{
+      // cool:{
+      //   type:String,
+      //   required:false
+      // }
     }
   }
 </script>
