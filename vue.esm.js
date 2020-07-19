@@ -782,8 +782,11 @@ Dep.prototype.removeSub = function removeSub(sub) {
 };
 
 Dep.prototype.depend = function depend() {
-  // 在当前的渲染Watcher添加当前dep对象
+  // 在当前的watcher添加当前dep对象 (渲染 计算属性watcher)
   if (Dep.target) {
+    // Dep.target是 当前watcher所依赖的watcher
+    // 就比如 
+    // this 是计算属性watcher等等。。。
     Dep.target.addDep(this);
   }
 };
@@ -815,7 +818,7 @@ Dep.prototype.notify = function notify() {
 Dep.target = null;
 var targetStack = [];
 
-function pushTarget(target) {
+function pushTarget(target) { // target:Wathcer
   targetStack.push(target);
   Dep.target = target;
 }
@@ -4623,7 +4626,7 @@ function deactivateChildComponent(vm, direct) {
  */
 function callHook(vm, hook) {
   // #7573 disable dep collection when invoking lifecycle hooks 
-  // 在执行声明钩子的时候取消收集依赖。
+  // 在执行声明钩子的时候取消收集依赖。入栈一个undefined 在执行完钩子之后再出栈
   pushTarget();
   var handlers = vm.$options[hook];
   var info = hook + " hook";
@@ -4916,7 +4919,7 @@ var Watcher = function Watcher(
 
 /**
  *  new Wacther()最终会触发这个get方法
- * 1. 设置当前依赖目标 Dep.target 为当前watcher
+ * 1. 设置当前依赖目标 Dep.target 为当前watcher 可能是用户watcher 也可能是计算属性为watcher
  * 2. 然后去执行当前vm对应的_render()=>_update()
  * 3. 执行完vnode和dom初始化后,Dep.target 退回到targetStack栈顶元素
  * Evaluate the getter, and re-collect dependencies.
@@ -5179,6 +5182,10 @@ function initProps(vm, propsOptions) {
   toggleObserving(true);
 }
 
+/**
+ * 为data中的数据进行响应式
+ * @param {*} vm 
+ */
 function initData(vm) {
   var data = vm.$options.data;
   // 首先判断data是不是function 如果是 执行函数  如果不是 直接返回data 
@@ -5240,14 +5247,20 @@ var computedWatcherOptions = {
   lazy: true
 };
 
+/**
+ * 创建计算属性相关watcher
+ * @param {*} vm 
+ * @param {*} computed 
+ */
 function initComputed(vm, computed) {
   // $flow-disable-line
+  // 首先为当前vm创建一个哈希表保存计算属性的watcher
   var watchers = vm._computedWatchers = Object.create(null);
   // computed properties are just getters during SSR
   var isSSR = isServerRendering();
 
-  for (var key in computed) {
-    var userDef = computed[key];
+  for (var key in computed) { // 遍历
+    var userDef = computed[key]; // 首先进行标准化 computed:{ name(){} } => computed: {name: { get(){  } }}
     var getter = typeof userDef === 'function' ? userDef : userDef.get;
     if (process.env.NODE_ENV !== 'production' && getter == null) {
       warn(
@@ -5258,18 +5271,19 @@ function initComputed(vm, computed) {
 
     if (!isSSR) {
       // create internal watcher for the computed property.
-      watchers[key] = new Watcher(
+      watchers[key] = new Watcher( // 为每一个计算属性创建watcher 并保存到哈希表中
         vm,
         getter || noop,
         noop,
-        computedWatcherOptions
+        computedWatcherOptions // 计算属性的watcher都是lazy的  {lazy: true} 所以new出来的watcher.val === undefined
       );
     }
 
     // component-defined computed properties are already defined on the
     // component prototype. We only need to define computed properties defined
     // at instantiation here.
-    if (!(key in vm)) {
+    // 组件定义的计算属性已在组件原型上定义。我们只需要定义在实例化时定义的计算属性。
+    if (!(key in vm)) { // 如果当前key不在vm及其原型链上 去定义它！
       defineComputed(vm, key, userDef);
     } else if (process.env.NODE_ENV !== 'production') {
       if (key in vm.$data) {
@@ -5281,16 +5295,22 @@ function initComputed(vm, computed) {
   }
 }
 
+/**
+ * 定义计算属性
+ * @param {*} target vm
+ * @param {*} key 计算属性名
+ * @param {*} userDef 用户定义的方法
+ */
 function defineComputed(
   target,
   key,
   userDef
 ) {
-  var shouldCache = !isServerRendering();
+  var shouldCache = !isServerRendering(); // 如果不是SSR
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache ?
-      createComputedGetter(key) :
-      createGetterInvoker(userDef);
+      createComputedGetter(key) :   // 非SSR进入
+      createGetterInvoker(userDef); // SSR进入
     sharedPropertyDefinition.set = noop;
   } else {
     sharedPropertyDefinition.get = userDef.get ?
@@ -5309,20 +5329,27 @@ function defineComputed(
       );
     };
   }
+  // 为vm[computed-key]创建getter setter
   Object.defineProperty(target, key, sharedPropertyDefinition);
 }
 
+/**
+ * 创建读取计算属性的getter 在读取计算属性是将读取里面的方法
+ * 
+ * @param {*} key 
+ */
 function createComputedGetter(key) {
   return function computedGetter() {
+    // 首先拿到哈希表中对应的watcher
     var watcher = this._computedWatchers && this._computedWatchers[key];
     if (watcher) {
-      if (watcher.dirty) {
-        watcher.evaluate();
+      if (watcher.dirty) { // 判断计算结果值变了没有
+        watcher.evaluate(); // 变了就进行一次evaluate
       }
-      if (Dep.target) {
-        watcher.depend();
+      if (Dep.target) { // 重新进行依赖收集
+        watcher.depend(); // 当前watcher中的dep
       }
-      return watcher.value
+      return watcher.value // 返回最新的计算属性值
     }
   }
 }
@@ -5333,6 +5360,11 @@ function createGetterInvoker(fn) {
   }
 }
 
+/**
+ * 仅仅做了一次this的硬绑定
+ * @param {*} vm 
+ * @param {*} methods 
+ */
 function initMethods(vm, methods) {
   var props = vm.$options.props;
   for (var key in methods) {

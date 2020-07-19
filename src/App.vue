@@ -3,7 +3,8 @@
     <!-- <div v-if="isShow"> -->
       <!-- <my-cpn :cool='i'></my-cpn> -->
     <!-- </div> -->
-    {{isShow}}
+    {{isShow}} 
+    {{name}}
     <button @click="show">click</button>
     <main-tab-bar cool='i'></main-tab-bar>
     <!-- <router-view></router-view> -->
@@ -29,6 +30,11 @@ export default {
   watch: {
     isShow(old,val){
       console.log(val === old)
+    }
+  },
+  computed:{
+    name(){
+      return this.isShow
     }
   }
 };
