@@ -25,6 +25,11 @@ export default {
     show() {
       this.isShow = true;
     }
+  },
+  watch: {
+    isShow(old,val){
+      console.log(val === old)
+    }
   }
 };
 </script>

@@ -547,13 +547,13 @@ function parsePath(path) {
   if (bailRE.test(path)) {
     return
   }
-  var segments = path.split('.');
-  return function (obj) {
+  var segments = path.split('.'); // a.b.c => [a,b,c]
+  return function (obj) { // 返回一个方法
     for (var i = 0; i < segments.length; i++) {
       if (!obj) {
         return
       }
-      obj = obj[segments[i]];
+      obj = obj[segments[i]]; // obj = obj[a] 也就是说 通过循环的过程去获取obj上的方法 在将来将从vm上边去拿属性  所以a.b.c 就相当于 vm[a][b][c] => vm.a.b.c
     }
     return obj
   }
@@ -1080,7 +1080,7 @@ function observe(value, asRootData) {
   if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
     ob = value.__ob__;
   } else if (
-    shouldObserve && // 当前状态是不是可观察的
+    shouldObserve && // 当前状态是不是可观察的 （）
     !isServerRendering() && // 是不是服务器端渲染的
     (Array.isArray(value) || isPlainObject(value)) && // 检测当前value值必须是严格对象或者是数组才会为其注册外层ob，然后添加dep。
     Object.isExtensible(value) && // 查看当前对象是不是可扩展的
@@ -1136,7 +1136,8 @@ function defineReactive$$1(
   }
 
   // 如果未传入shallow或者传入false就去拿到val对应的observer
-  // 这里拿到的是val.__ob__
+  // 这里拿到的是val.__ob__ 如果是primitive值返回值为undefined
+  // 如果当前不允许new Observer 返回值也是undefined
   var childOb = !shallow && observe(val);
   // 每一个getter setter 都会持有一个闭包变量dep
   // 对象的每一个属性都有自己的dep
@@ -4708,7 +4709,8 @@ function flushSchedulerQueue() {
   // 1. Components are updated from parent to child. (because parent is always
   //    created before the child) 组件更新是从父到子 保证父的watcher在前边 子的watcher在后边（id 顺序）
   // 2. A component's user watchers are run before its render watcher (because
-  //    user watchers are created before the render watcher) 用户自定义的watch:{} 或者 vm.$watch() 会创建user-watcher 这些需要在渲染watcher前边 
+  //    user watchers are created before the render watcher) 用户自定义的watch:{} 或者 vm.$watch() 会创建user-watcher 这些需要在render-watcher前边
+  //    可是为什么user-wathcer的id号一定比render-wathcer小呢？ 因为在渲染当前组件（$mount）之前已经执行了initWatch 这时候user-watcher已经new出来了 id肯定要比当前组建的渲染wathcer要小 所以这种排序是可靠的
   // 3. If a component is destroyed during a parent component's watcher run,
   //    its watchers can be skipped. 如果当前组件的销毁是在父组件的watcher中执行的，就可以通过执行父组件watcher
   queue.sort(function (a, b) {
@@ -4729,8 +4731,18 @@ function flushSchedulerQueue() {
     // run
     watcher.run();
     // in dev build, check and stop circular updates. 防止循环调用 导致无限循环的bug
+    // 主要针对在 user-watcher 中再次启动 user-wathcer
+    // 如下代码 设置一个user-watcher 在msg变化时又会去改变msg 继而再去触发watcher 出现了死循环
+    // vue在这里做了循环层级限制。 默认100层。
+    /**
+     * watch:{
+     *  msg (){
+     *    this.msg = Math.random()
+     *  }
+     * }
+     */
     if (process.env.NODE_ENV !== 'production' && has[id] != null) {
-      circular[id] = (circular[id] || 0) + 1;
+      circular[id] = (circular[id] || 0) + 1; // 每次重复执行当前watcher就会记录一次 直到超过 MAX_UPDATE_COUNT
       if (circular[id] > MAX_UPDATE_COUNT) {
         warn(
           'You may have an infinite update loop ' + (
@@ -4884,9 +4896,9 @@ var Watcher = function Watcher(
     '';
   // parse expression for getter
   if (typeof expOrFn === 'function') {
-    this.getter = expOrFn;
+    this.getter = expOrFn; // 如果当前传入的是个function 则在数据变化后触发这个方法
   } else {
-    this.getter = parsePath(expOrFn);
+    this.getter = parsePath(expOrFn); // 否则通过表达式去解析方法 得到一个闭包函数 执行后得到当前vm中的对应值
     if (!this.getter) {
       this.getter = noop;
       process.env.NODE_ENV !== 'production' && warn(
@@ -4897,7 +4909,7 @@ var Watcher = function Watcher(
       );
     }
   }
-  this.value = this.lazy ?
+  this.value = this.lazy ? // 这里会把watcher更新后的返回值返回到watcher.value属性上
     undefined :
     this.get();
 };
@@ -4996,6 +5008,10 @@ Watcher.prototype.update = function update() {
 Watcher.prototype.run = function run() {
   if (this.active) {
     // 数据已经通过用户的操作修改过了 通过触发watcher的run方法 继而触发get方法触发 _render() => _update()
+    // 这里同样会执行user-wathcer 判断当前值和旧值相不相等 
+    // 判断val是不是个对象
+    // 判断是不是深度监听
+    // 三者满足其一 就去设置新旧值 如果是用户wathcer 就会触发回调
     var value = this.get();
     if (
       value !== this.value ||
@@ -5041,6 +5057,7 @@ Watcher.prototype.depend = function depend() {
 };
 
 /**
+ * 把当前watcher从所有的订阅者列表中删除
  * Remove self from all dependencies' subscriber list.
  */
 Watcher.prototype.teardown = function teardown() {
@@ -5048,7 +5065,7 @@ Watcher.prototype.teardown = function teardown() {
     // remove self from vm's watcher list
     // this is a somewhat expensive operation so we skip it
     // if the vm is being destroyed.
-    if (!this.vm._isBeingDestroyed) {
+    if (!this.vm._isBeingDestroyed) { // 如果当前没有执行$destory() 就去吧当前watcher删了从其vm的_watchers列表中
       remove(this.vm._watchers, this);
     }
     var i = this.deps.length;
@@ -5095,7 +5112,7 @@ function initState(vm) {
   } else {
     observe(vm._data = {}, true /* asRootData */ ); // 传入vm._data asRootData = true
   }
-  if (opts.computed) {
+  if (opts.computed) { // 初始化computed
     initComputed(vm, opts.computed);
   }
   if (opts.watch && opts.watch !== nativeWatch) {
@@ -5118,7 +5135,7 @@ function initProps(vm, propsOptions) {
   var keys = vm.$options._propKeys = [];
   var isRoot = !vm.$parent;
   // root instance props should be converted
-  // 如果不是根组件的话就不去new Observer
+  // 如果不是根组件的话就不去为当前props中的对象类型的变量创建 Observer
   if (!isRoot) {
     toggleObserving(false);
   }
@@ -5344,6 +5361,13 @@ function initMethods(vm, methods) {
   }
 }
 
+/**
+ * 为每一个watch中的属性值创建user-watcher
+ * 如果为当前属性传入的值是个数组
+ * 这把当前这个数组遍历去创建user-watcher
+ * @param {*} vm 
+ * @param {*} watch option.watch
+ */
 function initWatch(vm, watch) {
   for (var key in watch) {
     var handler = watch[key];
@@ -5357,17 +5381,26 @@ function initWatch(vm, watch) {
   }
 }
 
+/**
+ * 
+ * @param {*} vm 
+ * @param {*} expOrFn 表达式 或者 方法
+ * @param {*} handler 监听到变化后需要回调的方法
+ * @param {*} options 
+ */
 function createWatcher(
   vm,
   expOrFn,
   handler,
   options
 ) {
-  if (isPlainObject(handler)) {
+  if (isPlainObject(handler)) { // 如果传入的hadler是一个对象 如{ handler:[] } 就做一层简单的标准化 允许用户将options的参数提前 方面使用
     options = handler;
     handler = handler.handler;
   }
-  if (typeof handler === 'string') {
+  // 如果当前传入的是个字符串，就去vm中拿到对应属性  就如 watch:{ a,'methodName' } 如果出现了字符串 就去找这个方法 相当于 this.methodName
+  // 其实watch 不过是对于 $watch 的一层简单封装
+  if (typeof handler === 'string') { 
     handler = vm[handler];
   }
   return vm.$watch(expOrFn, handler, options)
@@ -5409,20 +5442,23 @@ function stateMixin(Vue) {
     options
   ) {
     var vm = this;
-    if (isPlainObject(cb)) {
+    // situation 1 :$watch('a.b.c', function (newVal, oldVal) {},{deep:true})
+    // situation 2 :$watch('a.b.c', {handler:function (newVal, oldVal) {}，deep:true}) 
+    if (isPlainObject(cb)) { // 如果传入的cb不是function而是严格对象的话 就扔到 createWatcher()去做一次标准化 做完还会回到这个方法 就像第二种方法
       return createWatcher(vm, expOrFn, cb, options)
     }
     options = options || {};
-    options.user = true;
+    options.user = true; // 标志当前是user-watcher
+    // 直接为当前的 expOrFn 去创建一个watcher
     var watcher = new Watcher(vm, expOrFn, cb, options);
-    if (options.immediate) {
+    if (options.immediate) { // 判断当前immediate传了没  传了就立即执行一次回调函数 newVal没传 仅仅传入初始化的val
       try {
         cb.call(vm, watcher.value);
       } catch (error) {
         handleError(error, vm, ("callback for immediate watcher \"" + (watcher.expression) + "\""));
       }
     }
-    return function unwatchFn() {
+    return function unwatchFn() { // 返回一个关闭watcher的方法
       watcher.teardown();
     }
   };
