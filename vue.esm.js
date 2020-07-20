@@ -804,7 +804,7 @@ Dep.prototype.notify = function notify() {
       return a.id - b.id;
     });
   }
-  // 遍历watcher依次更新视图
+  // 遍历当前dep所有相关watcher依次更新视图
   for (var i = 0, l = subs.length; i < l; i++) {
     subs[i].update();
   }
@@ -1171,10 +1171,17 @@ function defineReactive$$1(
     get: function reactiveGetter() {
       var value = getter ? getter.call(obj) : val;
       // Dep.target一直指向targetStack的栈顶元素
+      // 用到的所有属性 包括渲染时 初始化计算属性和watcher时
+      // 都将添加到watcher.newDeps中去
+      // 相应的,属性dep中也存储了用到的地方的wathcer
+      // 依赖收集过程中是一个双向保存引用的过程
       if (Dep.target) {
         dep.depend(); // 核心:收集依赖 将当前属性对应的dep添加到Dep.target
         if (childOb) { // 判断当前val本身是否为对象或数组类型 如果是的话就拥有自己的ob  就会拿到其__ob__ 完成深层的响应式
-          childOb.dep.depend(); // 拿到当前val对应的__ob__.dep传入到当前Dep.target的依赖数组中去 所有的dep 都将被添加到当前的渲染Watcher中去 如此一来就完成了深层的依赖收集
+           // 拿到当前val对应的__ob__.dep传入到当前Dep.target的依赖数组中去 所有的dep 都将被添加到当前的渲染Watcher中去
+           // 如此一来就完成了深层的依赖收集
+           // 这里的dep会在 Vue.del Vue.set 和使用数据响应方法时使用
+          childOb.dep.depend();
           if (Array.isArray(value)) { // 如果是数组 对数组元素进行依次依赖收集
             dependArray(value);
           }
@@ -4948,7 +4955,7 @@ Watcher.prototype.get = function get() {
 
 /**
  * Add a dependency to this directive.
- * watcher中会持有很多个dep对象
+ * watcher中会持有很多个dep对象(对应很多个响应式属性)
  * 每个dep对象将对应一个响应式的属性 props 或者 data 
  * 也可能一个属性的dep被添加多次? 由于在页面上引用多次 就会编译出多个当前属性的引用 
  * 于是出发了多个getter 但是在addDep的过程中进行了做去重
@@ -4961,6 +4968,10 @@ Watcher.prototype.addDep = function addDep(dep) {
     this.newDepIds.add(id);
     this.newDeps.push(dep);
     if (!this.depIds.has(id)) { // 如果当前当前watcher 的dep中没有当前dep.id
+      // 每个dep(属性)里面也会拥有多个watcher 可能存在一个属性被多个watcher订阅 
+      // 比如一个属性即被渲染到页面 所以将有一个render-watcher去订阅这个dep
+      // 用户又监听这个属性的变化 将有一个user-wathcer去订阅这个dep
+      // 计算属性中也订阅了这个属性的变化 这是一个lazy-wathcer
       dep.addSub(this); // 当前watcher添加到dep中去 (双向持有引用)
     }
   }
