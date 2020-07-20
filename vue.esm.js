@@ -191,7 +191,7 @@ function cached(fn) { // 维持一个闭包 闭包里面保存当前方法执行
  * a-b => aB
  * Camelize a hyphen-delimited string. 
  */
-var camelizeRE = /-(\w)/g;
+var camelizeRE = /-(\w)/g; // -加字母
 var camelize = cached(function (str) {
   return str.replace(camelizeRE, function (_, c) {
     return c ? c.toUpperCase() : '';
@@ -210,7 +210,7 @@ var capitalize = cached(function (str) {
  * zhangSan => zhang-san
  * Hyphenate a camelCase string.
  */
-var hyphenateRE = /\B([A-Z])/g;
+var hyphenateRE = /\B([A-Z])/g; // 非单词边界加上A-Z的任意字母
 var hyphenate = cached(function (str) {
   return str.replace(hyphenateRE, '-$1').toLowerCase()
 });
@@ -658,7 +658,12 @@ var formatComponentName = (noop);
 
 if (process.env.NODE_ENV !== 'production') {
   var hasConsole = typeof console !== 'undefined';
-  var classifyRE = /(?:^|[-_])(\w)/g;
+  /**
+   * 以单词开头
+   * 以-开头加单词
+   * 以_开头加单词
+   */
+  var classifyRE = /(?:^|[-_])(\w)/g; 
   var classify = function (str) {
     return str
       .replace(classifyRE, function (c) {
@@ -1942,6 +1947,9 @@ function assertProp(
   }
 }
 
+/**
+ * 独立的单词 ： String|Number|Boolean|Function|Symbol 五个之一 前后不能有任何东西
+ */
 var simpleCheckRE = /^(String|Number|Boolean|Function|Symbol)$/;
 
 function assertType(value, type) {
@@ -4180,6 +4188,9 @@ function updateComponentListeners( // 更新组件的额事件侦听器（从站
 }
 
 function eventsMixin(Vue) {
+  /**
+   * 以hook:开头
+   */
   var hookRE = /^hook:/;
   Vue.prototype.$on = function (event, fn) {
     var vm = this;
@@ -7562,6 +7573,9 @@ var klass = {
 
 /*  */
 
+/**
+ * 字母 数字 下划线 . + - _ $ ] 
+ */
 var validDivisionCharRE = /[\w).+\-_$\]]/;
 
 function parseFilters(exp) {
@@ -8568,7 +8582,13 @@ function getStyle(vnode, checkChild) {
 
 /*  */
 
+/**
+ * --开头 定义css变量
+ */
 var cssVarRE = /^--/;
+/**
+ *  0个或者多个空格加!important结尾
+ */
 var importantRE = /\s*!important$/;
 var setProp = function (el, name, val) {
   /* istanbul ignore if */
@@ -8659,6 +8679,9 @@ var style = {
 
 /*  */
 
+/**
+ * 一个或者多个空格
+ */
 var whitespaceRE = /\s+/;
 
 /**
@@ -8844,6 +8867,9 @@ function whenTransitionEnds(
   el.addEventListener(event, onEnd);
 }
 
+/**
+ * 单词边界加上transform或者all再加上,或者结束
+ */
 var transformRE = /\b(transform|all)(,|$)/;
 
 function getTransitionInfo(el, expectedType) {
@@ -9916,7 +9942,19 @@ if (inBrowser) {
 
 /*  */
 
+/**
+ * {{任意字符一个或多个}}
+ * {{\n一个或多个}}
+ * {{\r\n一个或多个}}
+ */
 var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g;
+/**
+ * 正则内置符号
+ * -.*+?${}()|[]/\\
+ * 通过一个正则将字面量正则表达式转化成new Regex的形式 
+ * 例如 /(a|b)[1-10]/ 通过下边replace方法转化成 "\/\(a\|b\)\[1\-10\]\/g" 在所有内置符号前边都加一个\
+ * $&就表示匹配到的内容本身 (a|b)[1-10] 中的 ( 替换成\( 所以$&就匹配了(本身
+ */
 var regexEscapeRE = /[-.*+?^${}()|[\]\/\\]/g;
 
 var buildRegex = cached(function (delimiters) {
@@ -9924,8 +9962,6 @@ var buildRegex = cached(function (delimiters) {
   var close = delimiters[1].replace(regexEscapeRE, '\\$&');
   return new RegExp(open + '((?:.|\\n)+?)' + close, 'g')
 });
-
-
 
 function parseText(
   text,
@@ -10423,6 +10459,10 @@ var dynamicArgRE = /^\[.*\]$/; // [ 任意字符除了空格 ]
 
 var argRE = /:(.*)$/; // :加上除了换行符的任意字符
 var bindRE = /^:|^\.|^v-bind:/; // 以: . v-bind三者之一开头
+/**
+ * ‘.native.prevent = ’ 将匹配到[".native", ".prevent = "]
+ * .加上除了.]的任意字符一次或者多次且后边跟着除了]的任意字符0到多次
+ */
 var modifierRE = /\.[^.\]]+(?=[^\]]*$)/g;
 
 /**
@@ -10435,6 +10475,9 @@ var slotRE = /^v-slot(:|$)|^#/;
 var lineBreakRE = /[\r\n]/; // 换行
 var whitespaceRE$1 = /\s+/g; // 空格
 
+/**
+ * 空格 换行符 "'<>/= 中的任意一个
+ */
 var invalidAttributeRE = /[\s"'<>\/=]/;
 
 var decodeHTMLCached = cached(he.decode);
@@ -11633,8 +11676,29 @@ function isDirectChildOfTemplateFor(node) {
 
 /*  */
 
+/**
+ * fucntion word (
+ * function $ ( 
+ * word =>
+ * $ =>
+ * _ =>
+ * (除了右括号的任意字符一次到多次并禁止贪婪) =>
+ * 
+ */
 var fnExpRE = /^([\w$_]+|\([^)]*?\))\s*=>|^function(?:\s+[\w$]+)?\s*\(/;
+
+/**
+ * (除了右括号的任意字符一次到多次并禁止贪婪)加上分号或者不加分号
+ */
 var fnInvokeRE = /\([^)]*?\);*$/;
+/**
+ * 字母_$加上字母数字下划线$然后加上.加上字母_$加上字母数字下划线         a$1.a$2
+ * 字母_$加上字母数字下划线$然后加上['加上除了单引号的字符零到多个加上']   a$1['123']
+ * 字母_$加上字母数字下划线$然后加上["加上除了单引号的字符零到多个加上"]   a$1["123"]
+ * 字母_$加上字母数字下划线$然后加上[数字一个到多个]                    a$1[123]
+ * 字母_$加上字母数字下划线$然后加上[字母_$]                          a$1[a$1]
+ * 字母_$加上字母数字下划线$然后加上[字母_$加上字母或者$]               a$1[a$1a$$]
+ */
 var simplePathRE = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\['[^']*?']|\["[^"]*?"]|\[\d+]|\[[A-Za-z_$][\w$]*])*$/;
 
 // KeyboardEvent.keyCode aliases
@@ -12416,7 +12480,16 @@ var unaryOperatorsRE = new RegExp('\\b' + (
   'delete,typeof,void'
 ).split(',').join('\\s*\\([^\\)]*\\)|\\b') + '\\s*\\([^\\)]*\\)');
 
-// strip strings in expressions
+// strip strings in expressions 匹配字符串语法
+/**
+ * '除了单引号和双反斜杠的任意字符'
+ * '双反斜杠加上任意字符'
+ * 双引号和``同单引号
+ * `除了单引号和双反斜杠的任意字符${
+ * `双反斜杠加上任意字符${
+ * }除了单引号和双反斜杠的任意字符`
+ * }双反斜杠加上任意字符`
+ */
 var stripStringRE = /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*\$\{|\}(?:[^`\\]|\\.)*`|`(?:[^`\\]|\\.)*`/g;
 
 // detect problematic expressions in a template
