@@ -3,8 +3,9 @@
     <!-- <div v-if="isShow"> -->
       <!-- <my-cpn :cool='i'></my-cpn> -->
     <!-- </div> -->
-    {{isShow}} 
-    {{name}}
+    <!-- {{isShow}} 
+    {{name}} -->
+    {{zs}}
     <button @click="show">click</button>
     <main-tab-bar cool='i'></main-tab-bar>
     <!-- <router-view></router-view> -->
@@ -16,21 +17,25 @@ import MainTabBar from "components/content/MainTabBar";
 export default {
   name: "app",
   data: () => ({
-    isShow: false,
-    i:'i am not on my-cpns props'
+    // isShow: false,
+    // i:'i am not on my-cpns props',
+    zs:{
+      name:"zs",
+      age:20
+    }
   }),
   components: {
     MainTabBar
   },
   methods: {
     show() {
-      this.isShow = true;
+      this.zs.age = 25;
     }
   },
   watch: {
-    isShow(old,val){
-      console.log(val === old)
-    }
+    // isShow(old,val){
+    //   console.log(val === old)
+    // }
   },
   computed:{
     name(){
