@@ -785,8 +785,6 @@ Dep.prototype.depend = function depend() {
   // 在当前的watcher添加当前dep对象 (渲染 计算属性watcher)
   if (Dep.target) {
     // Dep.target是 当前watcher所依赖的watcher
-    // 就比如 
-    // this 是计算属性watcher等等。。。
     Dep.target.addDep(this);
   }
 };
@@ -10398,21 +10396,33 @@ function parseHTML(html, options) {
 
 /*  */
 
-var onRE = /^@|^v-on:/;
-var dirRE = /^v-|^@|^:|^#/;
-var forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/;
-var forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/;
-var stripParensRE = /^\(|\)$/g;
-var dynamicArgRE = /^\[.*\]$/;
+var onRE = /^@|^v-on:/; // 以每一项开头 v-on:click
+var dirRE = /^v-|^@|^:|^#/; // 以每一项开头  v-bind   
+var forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/; // any in|of any    i in 
+/**
+ * ,结尾  
+ * ,加上除了,}]的任意字符结尾 
+ * ,加上除了,}]的任意字符再加上,结尾 
+ * ,加上除了,}]的任意字符再加上,再加上加上除了,}]结尾    
+ *  这个正则至多匹配两个逗号 例如 ,a,v | ,a | , | , a ,| , ,  
+ */
+var forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/; 
+var stripParensRE = /^\(|\)$/g; // 以‘(’开头 或者 以‘)’结尾
+var dynamicArgRE = /^\[.*\]$/; // [ 任意字符除了空格 ]
 
-var argRE = /:(.*)$/;
-var bindRE = /^:|^\.|^v-bind:/;
+var argRE = /:(.*)$/; // :加上除了换行符的任意字符
+var bindRE = /^:|^\.|^v-bind:/; // 以: . v-bind三者之一开头
 var modifierRE = /\.[^.\]]+(?=[^\]]*$)/g;
 
-var slotRE = /^v-slot(:|$)|^#/;
+/**
+ * 以v-slot开头然后直接结尾
+ * 以v-slot开头然后加:不一定结尾
+ * 以#开头
+ */
+var slotRE = /^v-slot(:|$)|^#/; 
 
-var lineBreakRE = /[\r\n]/;
-var whitespaceRE$1 = /\s+/g;
+var lineBreakRE = /[\r\n]/; // 换行
+var whitespaceRE$1 = /\s+/g; // 空格
 
 var invalidAttributeRE = /[\s"'<>\/=]/;
 
