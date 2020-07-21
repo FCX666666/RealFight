@@ -87,6 +87,7 @@ function isRegExp(v) {
 
 /**
  * Check if val is a valid array index.
+ * 检查是不是可用的数组index 整数 大于0 
  */
 function isValidArrayIndex(val) {
   var n = parseFloat(String(val));
@@ -4944,7 +4945,7 @@ Watcher.prototype.get = function get() {
   pushTarget(this);
   var value;
   var vm = this.vm;
-  try {
+  try { 
     value = this.getter.call(vm, vm);
   } catch (e) {
     if (this.user) {
