@@ -5,6 +5,7 @@
     <!-- </div> -->
     <!-- {{isShow}} 
     {{name}} -->
+    {{name}}
     {{zs}}
     <button @click="show">click</button>
     <main-tab-bar cool='i'></main-tab-bar>
@@ -17,7 +18,7 @@ import MainTabBar from "components/content/MainTabBar";
 export default {
   name: "app",
   data: () => ({
-    // isShow: false,
+    isShow: false,
     // i:'i am not on my-cpns props',
     zs:{
       name:"zs",
@@ -29,13 +30,13 @@ export default {
   },
   methods: {
     show() {
-      this.zs.age = 25;
+      this.isShow = !this.isShow
     }
   },
   watch: {
-    // isShow(old,val){
-    //   console.log(val === old)
-    // }
+    isShow(old,val){
+      console.log(val === old)
+    }
   },
   computed:{
     name(){

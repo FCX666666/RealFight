@@ -554,7 +554,13 @@ function parsePath(path) {
       if (!obj) {
         return
       }
-      obj = obj[segments[i]]; // obj = obj[a] 也就是说 通过循环的过程去获取obj上的方法 在将来将从vm上边去拿属性  所以a.b.c 就相当于 vm[a][b][c] => vm.a.b.c
+      // obj = obj[a] 也就是说 通过循环的过程去获取obj上的方法 在将来将从vm上边去拿属性  
+      // 所以a.b.c 就相当于 vm[a][b][c] => vm.a.b.c 知道最终的循环完毕或者某各环节已经不是对象了
+      // 在这个过程中会触发响应式的值的getter 在这之前呢 创建 new watcher的时候wathcer栈定已经是当前的user-wathcer了 
+      // 在getter触发的过程中呢会将当前Dep.target 也就是栈顶元素也就是把当前user-wathcer push 到 当前 响应式属性的subs中去
+      // 这样 在数据变化的过程中 不光可以通知render-wathcer去更新 也可以通知user-watcher去出发回调
+      obj = obj[segments[i]];
+
     }
     return obj
   }
@@ -664,7 +670,7 @@ if (process.env.NODE_ENV !== 'production') {
    * 以-开头加单词
    * 以_开头加单词
    */
-  var classifyRE = /(?:^|[-_])(\w)/g; 
+  var classifyRE = /(?:^|[-_])(\w)/g;
   var classify = function (str) {
     return str
       .replace(classifyRE, function (c) {
@@ -1027,7 +1033,7 @@ var Observer = function Observer(value) {
  * 并在getter和setter中去进行依赖收集和dom更新
  * 把每一个属性都定义成响应式
  */
-Observer.prototype.walk = function walk(obj) { 
+Observer.prototype.walk = function walk(obj) {
   var keys = Object.keys(obj);
   for (var i = 0; i < keys.length; i++) {
     defineReactive$$1(obj, keys[i]);
@@ -1184,9 +1190,9 @@ function defineReactive$$1(
       if (Dep.target) {
         dep.depend(); // 核心:收集依赖 将当前属性对应的dep添加到Dep.target
         if (childOb) { // 判断当前val本身是否为对象或数组类型 如果是的话就拥有自己的ob  就会拿到其__ob__ 完成深层的响应式
-           // 拿到当前val对应的__ob__.dep传入到当前Dep.target的依赖数组中去 所有的dep 都将被添加到当前的渲染Watcher中去
-           // 如此一来就完成了深层的依赖收集
-           // 这里的dep会在 Vue.del Vue.set 和使用数据响应方法时使用
+          // 拿到当前val对应的__ob__.dep传入到当前Dep.target的依赖数组中去 所有的dep 都将被添加到当前的渲染Watcher中去
+          // 如此一来就完成了深层的依赖收集
+          // 这里的dep会在 Vue.del Vue.set 和使用数据响应方法时使用
           childOb.dep.depend();
           if (Array.isArray(value)) { // 如果是数组 对数组元素进行依次依赖收集
             dependArray(value);
@@ -4785,7 +4791,7 @@ function flushSchedulerQueue() {
   resetSchedulerState();
 
   // call component updated and activated hooks
-  callActivatedHooks(activatedQueue);// 执行 hook:activated 钩子
+  callActivatedHooks(activatedQueue); // 执行 hook:activated 钩子
   callUpdatedHooks(updatedQueue); // 执行 hook:updated 钩子
 
   // devtool hook
@@ -4906,7 +4912,7 @@ var Watcher = function Watcher(
   this.cb = cb;
   this.id = ++uid$2; // uid for batching
   this.active = true;
-  this.dirty = this.lazy; // for lazy watchers
+  this.dirty = this.lazy; // for lazy watchers  computed-watcher初始化的时候就是true 在render方法中调用到computedGetters的时候就会去执行一次wathcer的evaluate 去更新dom
   this.deps = [];
   this.newDeps = [];
   this.depIds = new _Set();
@@ -4945,7 +4951,7 @@ Watcher.prototype.get = function get() {
   pushTarget(this);
   var value;
   var vm = this.vm;
-  try { 
+  try {
     value = this.getter.call(vm, vm);
   } catch (e) {
     if (this.user) {
@@ -5013,10 +5019,14 @@ Watcher.prototype.cleanupDeps = function cleanupDeps() {
 /**
  * Subscriber interface.
  * Will be called when a dependency changes.
+ * 
  */
 Watcher.prototype.update = function update() {
   /* istanbul ignore else */
   if (this.lazy) {
+    // 这里注意：lazywathcer的update方法只是把dirty编为true 并没有真的去触发wathcer的run方法
+    // 等到渲染页面的时候才会去触发计算属性的evaluate
+    // 在更新 computedGetter
     this.dirty = true;
   } else if (this.sync) { // 判断当前是同步？ 如果是 直接执行wathcer.run
     this.run();
@@ -5066,6 +5076,10 @@ Watcher.prototype.run = function run() {
  * This only gets called for lazy watchers.
  */
 Watcher.prototype.evaluate = function evaluate() {
+  // lazy的watcher在需要的时候继续更新 执行一次wathcer的getter
+  // 压栈当前lazy-wathcer 再去执行计算属性中的语句 
+  // 如果计算属性中的语句有响应式属性 会触发当前属性的getter 
+  // 并把当前lazy-watcher添加到当前属性的dep.subs中去
   this.value = this.get();
   this.dirty = false;
 };
@@ -5330,7 +5344,7 @@ function defineComputed(
   var shouldCache = !isServerRendering(); // 如果不是SSR
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache ?
-      createComputedGetter(key) :   // 非SSR进入
+      createComputedGetter(key) : // 非SSR进入
       createGetterInvoker(userDef); // SSR进入
     sharedPropertyDefinition.set = noop;
   } else {
@@ -5365,10 +5379,12 @@ function createComputedGetter(key) {
     var watcher = this._computedWatchers && this._computedWatchers[key];
     if (watcher) {
       if (watcher.dirty) { // 判断计算结果值变了没有
-        watcher.evaluate(); // 变了就进行一次evaluate
+        watcher.evaluate(); // 变了就进行一次evaluate 初始化的时候也要执行一次计算
       }
-      if (Dep.target) { // 重新进行依赖收集
-        watcher.depend(); // 当前watcher中的dep
+      if (Dep.target) { // 判断该当前上下文的watcher 可能是别的computed-watcher 也可能是render-watcher
+        // this.depids 中收集了当前wathcer订阅了哪几个dep的id（属性的更新）
+        // 当前watcher中的dep列表进行全部重新依赖收集 把当前wathcer重新添加到订阅列表中去
+        watcher.depend(); 
       }
       return watcher.value // 返回最新的计算属性值
     }
@@ -5453,7 +5469,7 @@ function createWatcher(
   }
   // 如果当前传入的是个字符串，就去vm中拿到对应属性  就如 watch:{ a,'methodName' } 如果出现了字符串 就去找这个方法 相当于 this.methodName
   // 其实watch 不过是对于 $watch 的一层简单封装
-  if (typeof handler === 'string') { 
+  if (typeof handler === 'string') {
     handler = vm[handler];
   }
   return vm.$watch(expOrFn, handler, options)
@@ -10454,7 +10470,7 @@ var forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/; // any in|of any    i in
  * ,加上除了,}]的任意字符再加上,再加上加上除了,}]结尾    
  *  这个正则至多匹配两个逗号 例如 ,a,v | ,a | , | , a ,| , ,  
  */
-var forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/; 
+var forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/;
 var stripParensRE = /^\(|\)$/g; // 以‘(’开头 或者 以‘)’结尾
 var dynamicArgRE = /^\[.*\]$/; // [ 任意字符除了空格 ]
 
@@ -10471,7 +10487,7 @@ var modifierRE = /\.[^.\]]+(?=[^\]]*$)/g;
  * 以v-slot开头然后加:不一定结尾
  * 以#开头
  */
-var slotRE = /^v-slot(:|$)|^#/; 
+var slotRE = /^v-slot(:|$)|^#/;
 
 var lineBreakRE = /[\r\n]/; // 换行
 var whitespaceRE$1 = /\s+/g; // 空格
