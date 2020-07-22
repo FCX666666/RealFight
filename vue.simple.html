@@ -11,19 +11,21 @@
   <div id="app"></div>
   <script src="./vue.simple.js"></script>
   <script>
-    new Vue({
+    window.vue = new Vue({
       data: () => ({
         msg: true
       }),
       methods: {
         change() {
-          this.msg = false
+          this.$data.msg = !this.$data.msg
         }
       },
       render(createElm) {
-        createElm('div', this.msg)
+        return createElm('div', this.$data.msg)
       }
-    }).$mount('#app')
+    })
+
+    window.vue.$mount('#app')
 
   </script>
 </body>
