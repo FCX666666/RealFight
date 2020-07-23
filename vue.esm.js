@@ -6512,7 +6512,9 @@ var hooks = ['create', 'activate', 'update', 'remove', 'destroy'];
  * 来判断两个vnode是不是一种vnode
  * 1.首先判断key是不是想等 必要条件
  * 2.1判断tag是不是相同 是不是都是或者都不是注释节点 判断两个vnode都有vnodedata 如果两个节点都是input 判断是不是同为文字输入节点或者input.type相等
- * 2.2判断如果是异步占位节点vnode 判断异步工厂函数是不是相同 
+ * 2.2判断如果是异步占位节点vnode 判断异步工厂函数是不是相同
+ * 
+ * 满足 1+2.1 || 1+2.2  就代表是相同的vnode  
  * @param {*} a 
  * @param {*} b 
  */
@@ -6708,17 +6710,17 @@ function createPatchFunction(backend) {
     if (isDef(i)) {
       var isReactivated = isDef(vnode.componentInstance) && i.keepAlive;
       if (isDef(i = i.hook) && isDef(i = i.init)) {
-        i(vnode, false /* hydrating */ );
+        i(vnode, false /* hydrating */ ); // 这里调用了组件的init方法 会进入下一个组件创建的循环
       }
-      // 在调用init hook之后，如果vnode是一个子组件，那么它应该已经创建了一个子实例并安装了它。
-      // 子组件还设置了占位符vnode的elm。在这种情况下，我们只需返回元素就可以了。
+      // 在调用init hook之后，如果vnode是一个子组件，那么它应该已经创建了一个子实例并挂载了它。
+      // 子组件还设置了占位符vnode的elm。在这种情况下，只需返回元素就可以了。
       // after calling the init hook, if the vnode is a child component
       // it should've created a child instance and mounted it. the child
       // component also has set the placeholder vnode's elm.
       // in that case we can just return the element and be done.
-      if (isDef(vnode.componentInstance)) {
-        initComponent(vnode, insertedVnodeQueue);
-        insert(parentElm, vnode.elm, refElm);
+      if (isDef(vnode.componentInstance)) { // 判断该当前组建的vm实例有么有 如果当前组件创建完毕 肯定是有的
+        initComponent(vnode, insertedVnodeQueue); // 初始化 并传入当前vnode需要插入的vnode列表
+        insert(parentElm, vnode.elm, refElm); // dom 插入
         if (isTrue(isReactivated)) {
           reactivateComponent(vnode, insertedVnodeQueue, parentElm, refElm);
         }
@@ -6727,6 +6729,11 @@ function createPatchFunction(backend) {
     }
   }
 
+  /**
+   * 
+   * @param {*} vnode 
+   * @param {*} insertedVnodeQueue 当前根组件需要插入的组件数组 通过不断递归去把子vnode添加到数组中去
+   */
   function initComponent(vnode, insertedVnodeQueue) {
     if (isDef(vnode.data.pendingInsert)) {
       insertedVnodeQueue.push.apply(insertedVnodeQueue, vnode.data.pendingInsert);
@@ -6796,10 +6803,10 @@ function createPatchFunction(backend) {
   }
 
   function isPatchable(vnode) {
-    while (vnode.componentInstance) {
-      vnode = vnode.componentInstance._vnode;
+    while (vnode.componentInstance) { // 组件占位vnode拥有componentInstance 如果是组件的占位节点vnode 进行循环
+      vnode = vnode.componentInstance._vnode; // 找到组建的渲染vnode
     }
-    return isDef(vnode.tag)
+    return isDef(vnode.tag) // 判断当前渲染vnode是不是又tag  如果又 当前vnode就是可挂载的
   }
 
   function invokeCreateHooks(vnode, insertedVnodeQueue) {
@@ -6850,6 +6857,10 @@ function createPatchFunction(backend) {
     }
   }
 
+  /**
+   * 递归调用vnode.data上边的destroy钩子函数
+   * @param {*} vnode 
+   */
   function invokeDestroyHook(vnode) {
     var i, j;
     var data = vnode.data;
@@ -6868,20 +6879,31 @@ function createPatchFunction(backend) {
     }
   }
 
+  /**
+   * 删除vnode
+   * @param {*} vnodes 要删除的vnode数组
+   * @param {*} startIdx 开始
+   * @param {*} endIdx 结尾
+   */
   function removeVnodes(vnodes, startIdx, endIdx) {
     for (; startIdx <= endIdx; ++startIdx) {
-      var ch = vnodes[startIdx];
+      var ch = vnodes[startIdx]; // 依次遍历从start-end的vnode
       if (isDef(ch)) {
-        if (isDef(ch.tag)) {
+        if (isDef(ch.tag)) { // 如果vnode存在且tag存在 说明是一个组建的vnode
           removeAndInvokeRemoveHook(ch);
           invokeDestroyHook(ch);
-        } else { // Text node
+        } else { // Text node // 如果不具备tag 就说明是textnode 直接执行removeNode
           removeNode(ch.elm);
         }
       }
     }
   }
 
+  /**
+   * 
+   * @param {*} vnode 
+   * @param {*} rm 
+   */
   function removeAndInvokeRemoveHook(vnode, rm) {
     if (isDef(rm) || isDef(vnode.data)) {
       var i;
@@ -7012,15 +7034,24 @@ function createPatchFunction(backend) {
     }
   }
 
+  /**
+   * patch
+   * @param {*} oldVnode 上次渲染的vnode
+   * @param {*} vnode 当前vnode
+   * @param {*} insertedVnodeQueue 待插入的vnode数组
+   * @param {*} ownerArray 
+   * @param {*} index 
+   * @param {*} removeOnly 
+   */
   function patchVnode(
-    oldVnode,
+    oldVnode, // 上次渲染的vnode
     vnode, // 当前组件的vnode
-    insertedVnodeQueue,
+    insertedVnodeQueue, // 从子组件到父组件的vnode数组
     ownerArray,
     index,
     removeOnly
   ) {
-    if (oldVnode === vnode) {
+    if (oldVnode === vnode) { // 严格相等直接返回
       return
     }
 
@@ -7031,6 +7062,9 @@ function createPatchFunction(backend) {
 
     var elm = vnode.elm = oldVnode.elm;
 
+    // 判断是不是上次的vnode是不是异步组件占位节点vnode
+    // 如果是 并且异步组件已经得到了 直接进行注水进行渲染
+    // 如果异步组件还未得到 只是将当前占位符标志为true
     if (isTrue(oldVnode.isAsyncPlaceholder)) {
       if (isDef(vnode.asyncFactory.resolved)) {
         hydrate(oldVnode.elm, vnode, insertedVnodeQueue);
@@ -7097,7 +7131,13 @@ function createPatchFunction(backend) {
     }
   }
 
-  function invokeInsertHook(vnode, queue, initial) { // 延迟组件根节点的插入钩子，在元素真正插入后调用它们
+  /**
+   *  延迟组件根节点的插入钩子，在元素真正插入后调用它们
+   * @param {*} vnode 
+   * @param {*} queue 
+   * @param {*} initial 
+   */
+  function invokeInsertHook(vnode, queue, initial) { 
     // delay insert hooks for component root nodes, invoke them after the
     // element is really inserted
     if (isTrue(initial) && isDef(vnode.parent)) {
@@ -7118,6 +7158,13 @@ function createPatchFunction(backend) {
   var isRenderedModule = makeMap('attrs,class,staticClass,staticStyle,key');
 
   // Note: this is a browser-only function so we can assume elms are DOM nodes.
+  /**
+   * 注水 异步组件渲染或者。。。
+   * @param {*} elm 
+   * @param {*} vnode 
+   * @param {*} insertedVnodeQueue 
+   * @param {*} inVPre 
+   */
   function hydrate(elm, vnode, insertedVnodeQueue, inVPre) {
     var i;
     var tag = vnode.tag;
@@ -7304,14 +7351,16 @@ function createPatchFunction(backend) {
         // 递归更新占位节点
         // update parent placeholder node element, recursively
         if (isDef(vnode.parent)) {
+          // 获取占位符节点
           var ancestor = vnode.parent;
+          // 判断该当前节点是不是可patch的
           var patchable = isPatchable(vnode);
-          while (ancestor) {
-            for (var i = 0; i < cbs.destroy.length; ++i) {
+          while (ancestor) { // 判断该vnode是否拥有占位符节点 如果没有占位符节点 就什么都不做
+            for (var i = 0; i < cbs.destroy.length; ++i) { // 在当前情况下 会把之前的节点进行销毁 执行钩子
               cbs.destroy[i](ancestor);
             }
-            ancestor.elm = vnode.elm;
-            if (patchable) {
+            ancestor.elm = vnode.elm; // 当前新的dom实例指向每一级占位符vnode的elm上
+            if (patchable) { // 判断当前是不是patchable的
               for (var i$1 = 0; i$1 < cbs.create.length; ++i$1) {
                 cbs.create[i$1](emptyNode, ancestor);
               }
@@ -7328,14 +7377,15 @@ function createPatchFunction(backend) {
             } else {
               registerRef(ancestor);
             }
-            ancestor = ancestor.parent;
+            ancestor = ancestor.parent; // 一直向上遍历 直到ancestor时占位符节点为止 （占位符节点就没有parent属性了）
           }
         }
 
+        // 删除老节点 oldvnode
         // destroy old node
-        if (isDef(parentElm)) {
+        if (isDef(parentElm)) { // 判断要删除的节点是否有父级dom节点
           removeVnodes([oldVnode], 0, 0);
-        } else if (isDef(oldVnode.tag)) {
+        } else if (isDef(oldVnode.tag)) { // 没有就直接执行钩子
           invokeDestroyHook(oldVnode);
         }
       }
