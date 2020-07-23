@@ -6508,14 +6508,22 @@ var emptyNode = new VNode('', {}, []);
 
 var hooks = ['create', 'activate', 'update', 'remove', 'destroy'];
 
+/**
+ * 来判断两个vnode是不是一种vnode
+ * 1.首先判断key是不是想等 必要条件
+ * 2.1判断tag是不是相同 是不是都是或者都不是注释节点 判断两个vnode都有vnodedata 如果两个节点都是input 判断是不是同为文字输入节点或者input.type相等
+ * 2.2判断如果是异步占位节点vnode 判断异步工厂函数是不是相同 
+ * @param {*} a 
+ * @param {*} b 
+ */
 function sameVnode(a, b) {
   return (
-    a.key === b.key && (
+    a.key === b.key && ( // 这里的key 就是v-for的key 如果都是undefined 或者 值相等 （primitive） 对象值将永远不相等
       (
-        a.tag === b.tag &&
+        a.tag === b.tag && // tag isComment a和b的data都定义了 
         a.isComment === b.isComment &&
         isDef(a.data) === isDef(b.data) &&
-        sameInputType(a, b)
+        sameInputType(a, b) // 
       ) || (
         isTrue(a.isAsyncPlaceholder) &&
         a.asyncFactory === b.asyncFactory &&
@@ -6604,7 +6612,16 @@ function createPatchFunction(backend) {
 
   var creatingElmInVPre = 0;
 
-  // createElm 的作用是通过虚拟节点创建真实的 DOM 并插入到它的父节点中。
+  /**
+   * createElm 的作用是通过虚拟节点创建真实的 DOM 并插入到它的父节点中。
+   * @param {*} vnode 
+   * @param {*} insertedVnodeQueue 
+   * @param {*} parentElm 
+   * @param {*} refElm 
+   * @param {*} nested 
+   * @param {*} ownerArray 
+   * @param {*} index 
+   */
   function createElm(
     vnode, // 当前组件的vnode
     insertedVnodeQueue, // 当前vnode待插入的子节点队列 先子后父
@@ -7234,14 +7251,16 @@ function createPatchFunction(backend) {
       createElm(vnode, insertedVnodeQueue);
     } else {
       var isRealElement = isDef(oldVnode.nodeType);
-      if (!isRealElement && sameVnode(oldVnode, vnode)) {
+      if (!isRealElement && sameVnode(oldVnode, vnode)) { // 如果是相同的vnode 就会进行patch
         // patch existing root node
         patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly);
-      } else {
-        if (isRealElement) {
+      } else { // 如果不是相同的vnode 就会创建新的dom
+        if (isRealElement) { // 判断老节点是不是真的dom节点
           // mounting to a real element
           // check if this is server-rendered content and if we can perform
           // a successful hydration.
+          // 挂载到一个真实的DOM元素
+          // 检查这是否是 SSR 的上下文，以便是否可以成功地执行注水。
           if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
             oldVnode.removeAttribute(SSR_ATTR);
             hydrating = true;
@@ -7266,11 +7285,12 @@ function createPatchFunction(backend) {
           oldVnode = emptyNodeAt(oldVnode);
         }
 
+        // 保存老节点和父节点
         // replacing existing element
         var oldElm = oldVnode.elm;
         var parentElm = nodeOps.parentNode(oldElm);
 
-        // create new node
+        // create new node 真实的dom
         createElm(
           vnode,
           insertedVnodeQueue,
@@ -7281,6 +7301,7 @@ function createPatchFunction(backend) {
           nodeOps.nextSibling(oldElm)
         );
 
+        // 递归更新占位节点
         // update parent placeholder node element, recursively
         if (isDef(vnode.parent)) {
           var ancestor = vnode.parent;
