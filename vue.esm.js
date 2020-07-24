@@ -3600,12 +3600,12 @@ function createComponent(
   var name = Ctor.options.name || tag;
   var vnode = new VNode(
     ("vue-component-" + (Ctor.cid) + (name ? ("-" + name) : '')),
-    data, undefined, undefined, undefined, context, {
+    data, undefined, undefined, undefined, context, { // components options
       Ctor: Ctor,
       propsData: propsData,
       listeners: listeners,
       tag: tag,
-      children: children
+      children: children 
     },
     asyncFactory
   );
@@ -4525,6 +4525,14 @@ function mountComponent(
   return vm
 }
 
+/**
+ * 
+ * @param {*} vm 
+ * @param {*} propsData 
+ * @param {*} listeners 
+ * @param {*} parentVnode 
+ * @param {*} renderChildren 
+ */
 function updateChildComponent(
   vm,
   propsData,
