@@ -7370,7 +7370,7 @@ function createPatchFunction(backend) {
             ancestor.elm = vnode.elm; // 当前新的dom实例指向每一级占位符vnode的elm上
             if (patchable) { // 判断当前组建的渲染vnode是不是patchable的
               for (var i$1 = 0; i$1 < cbs.create.length; ++i$1) {
-                cbs.create[i$1](emptyNode, ancestor);// 如果是patchable的 就需要
+                cbs.create[i$1](emptyNode, ancestor);// 如果是patchable的 就肯定会执行到组建渲染并挂载
               }
               // #6513
               // invoke insert hooks that may have been merged by create hooks.
