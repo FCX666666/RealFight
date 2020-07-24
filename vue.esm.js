@@ -7361,16 +7361,16 @@ function createPatchFunction(backend) {
         if (isDef(vnode.parent)) {
           // 获取占位符节点
           var ancestor = vnode.parent;
-          // 判断该当前节点是不是可patch的
+          // 判断该当前节点是不是可patch的 （渲染vnode而不是站位vnode）
           var patchable = isPatchable(vnode);
           while (ancestor) { // 判断该vnode是否拥有占位符节点 如果没有占位符节点 就什么都不做
             for (var i = 0; i < cbs.destroy.length; ++i) { // 在当前情况下 会把之前的节点进行销毁 执行钩子
               cbs.destroy[i](ancestor);
             }
             ancestor.elm = vnode.elm; // 当前新的dom实例指向每一级占位符vnode的elm上
-            if (patchable) { // 判断当前是不是patchable的
+            if (patchable) { // 判断当前组建的渲染vnode是不是patchable的
               for (var i$1 = 0; i$1 < cbs.create.length; ++i$1) {
-                cbs.create[i$1](emptyNode, ancestor);
+                cbs.create[i$1](emptyNode, ancestor);// 如果是patchable的 就需要
               }
               // #6513
               // invoke insert hooks that may have been merged by create hooks.
