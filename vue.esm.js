@@ -6802,6 +6802,13 @@ function createPatchFunction(backend) {
     }
   }
 
+  /**
+   * 判断当前的组建是不是可挂载的
+   * 1.首先判断当前的vnode存不存在componentInstance 如果存在 就代表当前vnode是一个组建的占位vnode
+   * 2.vnode继续赋值为当前组建的vm对应的渲染vnode  =>_vnode 然后继续判断当前vnode是不是还拥有vm 知道当前vnode是一个渲染vnode render-vnode是没有componentsInstance
+   * 渲染的vnode是可以patch的 而占位节点是不能patch的
+   * @param {*} vnode 
+   */
   function isPatchable(vnode) {
     while (vnode.componentInstance) { // 组件占位vnode拥有componentInstance 如果是组件的占位节点vnode 进行循环
       vnode = vnode.componentInstance._vnode; // 找到组建的渲染vnode
