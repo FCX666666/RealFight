@@ -3448,8 +3448,15 @@ var componentVNodeHooks = {
     }
   },
 
+  /**
+   * 执行prepatch 这个过程同样也是递归的 会不断的更新子组件 不断的进行diff操作
+   * @param {*} oldVnode 老vnode
+   * @param {*} vnode  新vnode
+   */
   prepatch: function prepatch(oldVnode, vnode) {
+    // 组件配置option 记录了占位节点 props attrs等信息 
     var options = vnode.componentOptions;
+    // 获取vm
     var child = vnode.componentInstance = oldVnode.componentInstance;
     updateChildComponent(
       child,
@@ -6464,6 +6471,11 @@ var ref = {
   }
 };
 
+/**
+ * 
+ * @param {*} vnode 
+ * @param {*} isRemoval 
+ */
 function registerRef(vnode, isRemoval) {
   var key = vnode.data.ref;
   if (!isDef(key)) {
@@ -7086,6 +7098,8 @@ function createPatchFunction(backend) {
     // note we only do this if the vnode is cloned -
     // if the new node is not cloned it means the render functions have been
     // reset by the hot-reload-api and we need to do a proper re-render.
+    // 复用element 因为是静态的vnode 
+    // 注意仅仅但vnode是克隆出来的时候才会进行这个操做
     if (isTrue(vnode.isStatic) &&
       isTrue(oldVnode.isStatic) &&
       vnode.key === oldVnode.key &&
@@ -7097,6 +7111,7 @@ function createPatchFunction(backend) {
 
     var i;
     var data = vnode.data;
+    // 判断vnodedata是不是存在 去data上边取钩子函数并执行prepatch方法 
     if (isDef(data) && isDef(i = data.hook) && isDef(i = i.prepatch)) {
       i(oldVnode, vnode);
     }
@@ -7181,6 +7196,7 @@ function createPatchFunction(backend) {
     inVPre = inVPre || (data && data.pre);
     vnode.elm = elm;
 
+    // 判读当前传入的节点如果是一个占位节点 就直接返回true
     if (isTrue(vnode.isComment) && isDef(vnode.asyncFactory)) {
       vnode.isAsyncPlaceholder = true;
       return true
@@ -7191,10 +7207,13 @@ function createPatchFunction(backend) {
         return false
       }
     }
+    // 判断传入的vnodedata  如果存在 去通过vnode去初始化组件
     if (isDef(data)) {
       if (isDef(i = data.hook) && isDef(i = i.init)) {
         i(vnode, true /* hydrating */ );
       }
+      // 组件初始化完毕之后就会拥有componentsInstance属性 也就是vm
+      // 再去初始化内部组件
       if (isDef(i = vnode.componentInstance)) {
         // child component. it should have hydrated its own tree.
         initComponent(vnode, insertedVnodeQueue);
@@ -7375,8 +7394,10 @@ function createPatchFunction(backend) {
               // #6513
               // invoke insert hooks that may have been merged by create hooks.
               // e.g. for directives that uses the "inserted" hook.
+              // 执行插入钩子是因为可能包含已经合并的插入钩子函数 就像指令可能会添加insert钩子函数
               var insert = ancestor.data.hook.insert;
-              if (insert.merged) {
+              if (insert.merged) { // 拿到insert钩子函数数组 判读当前钩子函数是不是已经合并过了
+                // index 从1开始是为了避免重复执行组建挂载钩子
                 // start at index 1 to avoid re-invoking component mounted hook
                 for (var i$2 = 1; i$2 < insert.fns.length; i$2++) {
                   insert.fns[i$2]();
