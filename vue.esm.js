@@ -6,6 +6,7 @@
 /*  */
 
 /**
+ * 
  * vm.$options.parent       等同于 vm.$parent 当前活跃vm实例 也就是父vm 也就是当前正在创建的组件的vm
  * vm.$parent               父vm(非抽象)
  * vm.$children             子vm数组
