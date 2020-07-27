@@ -840,9 +840,19 @@ function popTarget() {
 }
 
 /* Vnode */
-
+/**
+ * 
+ * @param {String} tag 元素的标签 可能是自定义标签也可能是内置标签  可能是组件的展位vnode 也可能是渲染vnode 还能是普通节点的vnode
+ * @param {*} data vnodedata  一般是vue-loader或者vue-template-compiler解析出来的数据对象
+ * @param {*} children 子节点vnode数组 
+ * @param {*} text 文本内容
+ * @param {*} elm dom节点
+ * @param {*} context vm
+ * @param {*} componentOptions 组件传入的数据 props attrs on nativeOn等等 
+ * @param {*} asyncFactory 异步工厂函数
+ */
 var VNode = function VNode(
-  tag,
+  tag, 
   data,
   children,
   text,
@@ -2451,6 +2461,15 @@ function createFnInvoker(fns, vm) {
   return invoker
 }
 
+/**
+ * 
+ * @param {*} on 
+ * @param {*} oldOn 
+ * @param {*} add 
+ * @param {*} remove$$1 
+ * @param {*} createOnceHandler 
+ * @param {*} vm 
+ */
 function updateListeners(
   on, // 
   oldOn,
@@ -3450,13 +3469,15 @@ var componentVNodeHooks = {
 
   /**
    * 执行prepatch 这个过程同样也是递归的 会不断的更新子组件 不断的进行diff操作
+   * 整个prepatch也是深度遍历的的过程，当子组件patch完之后 才会进行当前组件的patch 
+   * 而自组件的patch都是在父级组件的prepatch中完成的
    * @param {*} oldVnode 老vnode
    * @param {*} vnode  新vnode
    */
   prepatch: function prepatch(oldVnode, vnode) {
-    // 组件配置option 记录了占位节点 props attrs等信息 
+    // 组件配置option 记录了占位节点 props attrs等信息 （vue-loader）一次编译 多次使用 
     var options = vnode.componentOptions;
-    // 获取vm
+    // 获取老的vm并赋值给新的vnode 执行更新自组件操作  
     var child = vnode.componentInstance = oldVnode.componentInstance;
     updateChildComponent(
       child,
@@ -3573,10 +3594,10 @@ function createComponent(
   }
 
   // extract listeners, since these needs to be treated as 提取方法,data.on应该被处理为子组件$emit出来的方法而不是原生native的方法
-  // child component listeners instead of DOM listeners
+  // child component listeners instead of DOM listeners data.on将保存到组件的占位vnode的componentsOptions 
   var listeners = data.on;
   // replace with listeners with .native modifier // 将包含.native修饰符的方法添加到当前组件的vnodedata.on 作为当前组件的native方法
-  // so it gets processed during parent component patch.
+  // so it gets processed during parent component patch. // nativeOn 将保留在当前组件的vnodedata中
   data.on = data.nativeOn;
 
   if (isTrue(Ctor.options.abstract)) {
@@ -3603,7 +3624,7 @@ function createComponent(
     data, undefined, undefined, undefined, context, { // components options
       Ctor: Ctor,
       propsData: propsData,
-      listeners: listeners,
+      listeners: listeners, // 这个listener是自组件emit要触发的方法
       tag: tag,
       children: children 
     },
@@ -3790,7 +3811,7 @@ function _createElement(
       );
     }
   } else { // 如果是 tag 一个 Component 类型，则直接调用 createComponent 创建一个组件类型的 VNode 节点。
-    // direct component options / constructor
+    // direct component options / constructor 是个对象 或者是个 Ctor
     vnode = createComponent(tag, data, context, children);
   }
   if (Array.isArray(vnode)) {
@@ -4164,7 +4185,7 @@ function getFirstComponentChild(children) {
 function initEvents(vm) {
   vm._events = Object.create(null); // 初始化事件管理中心
   vm._hasHookEvent = false;
-  // init parent attached events 查看当前vm.$options是不是从站位节点上继承来了listeners 如果有 为当前vm执行更新侦听器
+  // init parent attached events 查看当前vm.$options是不是从站位节点上继承来了listeners 这些listener就是用户emit触发的方法 如果有 为当前vm执行更新侦听器
   var listeners = vm.$options._parentListeners;
   if (listeners) {
     updateComponentListeners(vm, listeners);
@@ -4528,10 +4549,10 @@ function mountComponent(
 /**
  * 
  * @param {*} vm 
- * @param {*} propsData 
- * @param {*} listeners 
- * @param {*} parentVnode 
- * @param {*} renderChildren 
+ * @param {*} propsData 父子组件通信依赖的props
+ * @param {*} listeners 自组件emit需要出发的方法
+ * @param {*} parentVnode 新的占位节点 也就是 _render出来的vnode
+ * @param {*} renderChildren 子节点vnode数组
  */
 function updateChildComponent(
   vm,
