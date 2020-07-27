@@ -8,7 +8,8 @@
     <tab-bar-item path="/category" class='nav-ccc'>
       <!-- <img slot="item-icon" src="~assets/img/logo.png" alt="">
       <img slot="item-icon-active" src="~assets/img/logo.png" alt=""> -->
-      <div slot="item-text">分类</div>
+      <div slot="item-text" @click="toggle">分类  {{cool}}</div>
+      
     </tab-bar-item>
     <!-- <tab-bar-item path="/cart">
       <img slot="item-icon" src="~assets/img/logo.png" alt="">
@@ -33,13 +34,18 @@
       TabBarItem
     },
     mounted(){
-      console.dir(this.cool+'    ***   i got it!')
+      this.cool = 2
     },
     props:{
-      // cool:{
-      //   type:String,
-      //   required:false
-      // }
+      cool:{
+        type:String,
+        required:false
+      }
+    },
+    methods:{
+      toggle(){
+        this.cool = 1000
+      }
     }
   }
 </script>

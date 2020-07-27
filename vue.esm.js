@@ -4606,7 +4606,7 @@ function updateChildComponent(
 
   // update props 更新props 同时让子组件re-render
   if (propsData && vm.$options.props) {
-    toggleObserving(false); // 控制当前对于对象类型的值不会重新进行依赖收集
+    toggleObserving(false); // 当前props对象类型的值不会进行依赖收集  why?
     var props = vm._props; // 新老vnode的instance都是上次渲染 new出来的 vm实例 也就是自组件的vm实例 
     var propKeys = vm.$options._propKeys || [];
     for (var i = 0; i < propKeys.length; i++) {
@@ -5233,7 +5233,10 @@ function initProps(vm, propsOptions) {
         );
       }
       defineReactive$$1(props, key, value, function () {
-        if (!isRoot && !isUpdatingChildComponent) {
+        if (!isRoot && !isUpdatingChildComponent) { 
+          // 如果当前是根组件并且不进行警告 避免根组件渲染的时候会调用setter
+          // 如果当前是在更新自组件的时候 不会发出警告 更新自组件的过程中不可避免的会调用setter重新发起试图渲染
+          // 除此之外是用户在调用prop-setter 这是不被推荐的 所以需要警告用会被覆盖
           warn(
             "Avoid mutating a prop directly since the value will be " +
             "overwritten whenever the parent component re-renders. " +
