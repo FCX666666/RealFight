@@ -1003,6 +1003,7 @@ var arrayKeys = Object.getOwnPropertyNames(arrayMethods);
  */
 var shouldObserve = true;
 
+// 控制当前是不是重新new observer
 function toggleObserving(value) {
   shouldObserve = value;
 }
@@ -1838,9 +1839,9 @@ function validateProp(
   vm
 ) {
   var prop = propOptions[key];
-  // 判断当前key值是不是在propsData本身的属性 首先判断占位节点的 啊绑定进来的队对象中包不包含当前key
+  // 判断当前key值是不是在propsData本身的属性 首先判断占位节点的绑定进来的对象中包不包含当前key
   var absent = !hasOwn(propsData, key);
-  // 拿到value值 有可能是原型链上的属性
+  // 拿到value值 有可能是原型链上的属性 setter
   var value = propsData[key];
   // boolean casting
   // 首先判断当前传入的prop是不是布尔类型的 
@@ -1848,7 +1849,7 @@ function validateProp(
   if (booleanIndex > -1) { // 如过当前prop.type是布尔类型或者传入了个数组中包含prop.type props = { name:{type:[Boolean,String]} }
     if (absent && !hasOwn(prop, 'default')) { // 如果传入的props 每个default 就直接赋值为false
       value = false;
-    } else if (value === '' || value === hyphenate(key)) { // 如果传入的type时boolean 但是 传入的却是个字符串类 传入的空串或者是传入props的名字 没错 转换成true(checked => checked='chekced')
+    } else if (value === '' || value === hyphenate(key)) { 
       // only cast empty string / same name to boolean if
       // boolean has higher priority
       // 如果设置了当前prop的类型数组中包含String 就进行优先级判别  Boolean的优先级是高于String的
@@ -3475,7 +3476,7 @@ var componentVNodeHooks = {
    * @param {*} vnode  新vnode
    */
   prepatch: function prepatch(oldVnode, vnode) {
-    // 组件配置option 记录了占位节点 props attrs等信息 （vue-loader）一次编译 多次使用 
+    // 组件配置option 记录了占位节点 props attrs等信息 （vue-loader）一次编译 多次使用 ？？
     var options = vnode.componentOptions;
     // 获取老的vm并赋值给新的vnode 执行更新自组件操作  
     var child = vnode.componentInstance = oldVnode.componentInstance;
@@ -4548,7 +4549,7 @@ function mountComponent(
 
 /**
  * 
- * @param {*} vm 
+ * @param {*} vm 仍是上次渲染的时候创建的组件vm实例（初始化的时候会创建vm实例或者不是samevnode的时候会再次createElm进行组件实例的创建 这个vm可能是这两种情况下的结果）
  * @param {*} propsData 父子组件通信依赖的props
  * @param {*} listeners 自组件emit需要出发的方法
  * @param {*} parentVnode 新的占位节点 也就是 _render出来的vnode
@@ -4602,14 +4603,17 @@ function updateChildComponent(
   vm.$attrs = parentVnode.data.attrs || emptyObject;
   vm.$listeners = listeners || emptyObject;
 
-  // update props
+
+  // update props 更新props 同时让子组件re-render
   if (propsData && vm.$options.props) {
-    toggleObserving(false);
-    var props = vm._props;
+    toggleObserving(false); // 控制当前对于对象类型的值不会重新进行依赖收集
+    var props = vm._props; // 新老vnode的instance都是上次渲染 new出来的 vm实例 也就是自组件的vm实例 
     var propKeys = vm.$options._propKeys || [];
     for (var i = 0; i < propKeys.length; i++) {
       var key = propKeys[i];
-      var propOptions = vm.$options.props; // wtf flow?
+      var propOptions = vm.$options.props; // 把用户定义的props拿过来
+      // 在初始化props属性的过程会进行initprops的过程 会把所有的props定义成响应式的 并收集依赖
+      // 将会进入 prop-setter 进行重新赋值 继而出发dep.notify() 然后出发自组件的重新渲染 _c() 
       props[key] = validateProp(key, propOptions, propsData, vm);
     }
     toggleObserving(true);
@@ -6658,6 +6662,10 @@ function createPatchFunction(backend) {
 
   /**
    * createElm 的作用是通过虚拟节点创建真实的 DOM 并插入到它的父节点中。
+   * 在整个patch过程中 并不是所有的vnode都会吊用这个方法，共分为两种场景
+   * 1.在初始化组件的时候或者新老vnode不相同情况下会进入这个方法
+   * 2.如果新老节点是samevnode  就不会创建新的elm而是去通过patch进行children的选择性的createElm 性能更佳
+   * 也就是说 在patch的过程中并没有问当前组件创建新的vm实例 拿到的vm还是老的vm
    * @param {*} vnode 
    * @param {*} insertedVnodeQueue 
    * @param {*} parentElm 
@@ -7140,7 +7148,9 @@ function createPatchFunction(backend) {
 
     var i;
     var data = vnode.data;
-    // 判断vnodedata是不是存在 去data上边取钩子函数并执行prepatch方法 
+    // 判断vnodedata是不是存在 去data上边取钩子函数并执行prepatch方法
+    // 如果存在vnodedata 就说明当前patch的是一个组件的vnode 就需要去执行prepatch方法进行自组件的props更新之类的过程
+    // 在将props的更新传递下去的过程就要出发子组件的render函数 继而重新渲染 再继续执行就将执行到子组件的patch方法 
     if (isDef(data) && isDef(i = data.hook) && isDef(i = i.prepatch)) {
       i(oldVnode, vnode);
     }
@@ -7155,28 +7165,30 @@ function createPatchFunction(backend) {
         i(oldVnode, vnode);
       }
     }
-    if (isUndef(vnode.text)) {
-      if (isDef(oldCh) && isDef(ch)) {
-        if (oldCh !== ch) {
+    if (isUndef(vnode.text)) { //如果当前vnode不是text节点
+      if (isDef(oldCh) && isDef(ch)) { // 判断当前新老vnode是不是拥有children
+        if (oldCh !== ch) { 
+          // 如果新旧节点不同 就会更新children 最最核心的内容 是diff算法中最核心的部分
+          // 会再次执行vnode的patch操作 是一个递归的规程。
           updateChildren(elm, oldCh, ch, insertedVnodeQueue, removeOnly);
         }
-      } else if (isDef(ch)) {
+      } else if (isDef(ch)) { // 如果新的children存在 老的vnode没有children节点的情况
         if (process.env.NODE_ENV !== 'production') {
           checkDuplicateKeys(ch);
         }
-        if (isDef(oldVnode.text)) {
+        if (isDef(oldVnode.text)) { // 判断当前老节点是不是文本节点 如果是 把老节点文本清空
           nodeOps.setTextContent(elm, '');
         }
-        addVnodes(elm, null, ch, 0, ch.length - 1, insertedVnodeQueue);
-      } else if (isDef(oldCh)) {
+        addVnodes(elm, null, ch, 0, ch.length - 1, insertedVnodeQueue); // 添加节点到当前dom节点中去
+      } else if (isDef(oldCh)) { // 如果只有老得节点没有新的节点 就要把老得vnode都删除掉就可以了。
         removeVnodes(oldCh, 0, oldCh.length - 1);
-      } else if (isDef(oldVnode.text)) {
+      } else if (isDef(oldVnode.text)) { // 如果既没有老得vnode也米有新的vnode 判断当前vnode是不是文本节点 就直接把当前文本置空 
         nodeOps.setTextContent(elm, '');
       }
-    } else if (oldVnode.text !== vnode.text) {
+    } else if (oldVnode.text !== vnode.text) { // 如果是文本节点 查看当前节点的文本是不是变了 然后更新文本内容
       nodeOps.setTextContent(elm, vnode.text);
     }
-    if (isDef(data)) {
+    if (isDef(data)) { // 执行postpatch钩子
       if (isDef(i = data.hook) && isDef(i = i.postpatch)) {
         i(oldVnode, vnode);
       }
