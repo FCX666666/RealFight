@@ -12885,11 +12885,18 @@ function createFunction(code, errors) {
   }
 }
 
+/**
+ * 
+ * @param {*} compile 编译器
+ */
 function createCompileToFunctionFn(compile) {
   var cache = Object.create(null);
 
+  /**
+   * 把模版编译为render函数
+   */
   return function compileToFunctions(
-    template,
+    template, // 
     options,
     vm
   ) {
@@ -12992,7 +12999,11 @@ function createCompileToFunctionFn(compile) {
 }
 
 /*  */
-
+/**
+ * 构造编译器工厂  返回一个工厂函数 用于创建编译器
+ * @param {*} baseCompile 基础编译器 
+ * @returns {Object}  返回一个工厂函数  接受编译器的配置 并返回一个对象包裹最终的编译器
+ */
 function createCompilerCreator(baseCompile) {
   return function createCompiler(baseOptions) {
     function compile(
@@ -13158,7 +13169,7 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
         }
         return this
       }
-    } else if (el) { // 如果没有传入template 就直接获取el.innerHTML作template 最终这个template还会挂载到el上去
+    } else if (el) { // 如果没有传入template 就直接获取el.outerHTML作template 最终这个template还会挂载到el上去
       template = getOuterHTML(el);
     }
     if (template) {
@@ -13169,7 +13180,7 @@ Vue.prototype.$mount = function ( // 缓存了原本的$mount方法到mount 然�
       // 在 Vue 2.0 版本中，所有 Vue 的组件的渲染最终都需要 render 方法，
       // 无论是用单文件 .vue 方式开发组件，还是写了 el 或者 template 属性，最终都会转换成 render 方法，
       // 这个过程是 Vue 的一个“在线编译”的过程，它是调用 compileToFunctions 方法实现的，
-      var ref = compileToFunctions(template, { // 得到render 和 静态render并挂到options 相当于是做了一次normalize-for-render
+      var ref = compileToFunctions(template, { // 得到render 和 静态render并挂到options 相当于是做了一次normalize
         outputSourceRange: process.env.NODE_ENV !== 'production',
         shouldDecodeNewlines: shouldDecodeNewlines,
         shouldDecodeNewlinesForHref: shouldDecodeNewlinesForHref,

@@ -8,24 +8,30 @@
 </head>
 
 <body>
+
+  <input type="text" id="text">
+  <input type="button" id="btn" value="点击">
+
   <div id="app"></div>
   <script src="./vue.simple.js"></script>
+  <script src="./event.js"></script>
   <script>
-    window.vue = new Vue({
-      data: () => ({
-        msg: true
-      }),
-      methods: {
-        change() {
-          this.$data.msg = !this.$data.msg
-        }
-      },
-      render(createElm) {
-        return createElm('div', this.$data.msg)
-      }
-    })
+    // window.vue = new Vue({
+    //   data: () => ({
+    //     msg: true
+    //   }),
+    //   methods: {
+    //     change() {
+    //       this.$data.msg = !this.$data.msg
+    //     }
+    //   },
+    //   render(createElm) {
+    //     return createElm('div', this.$data.msg)
+    //   }
+    // })
 
-    window.vue.$mount('#app')
+    // window.vue.$mount('#app')
+
 
   </script>
 </body>
