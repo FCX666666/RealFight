@@ -10723,6 +10723,7 @@ function createASTElement(
 
 /**
  * Convert HTML string to AST.
+ * 将html标签转化成抽象语法树
  */
 function parse(
   template,
@@ -12896,9 +12897,9 @@ function createCompileToFunctionFn(compile) {
    * 把模版编译为render函数
    */
   return function compileToFunctions(
-    template, // 
-    options,
-    vm
+    template, // template
+    options, // 编译配置
+    vm // 正在编译的render对应的vm
   ) {
     options = extend({}, options);
     var warn$$1 = options.warn || warn;
@@ -12926,11 +12927,11 @@ function createCompileToFunctionFn(compile) {
     var key = options.delimiters ?
       String(options.delimiters) + template :
       template;
-    if (cache[key]) {
+    if (cache[key]) { // 查看缓存中是不是已经存在编译后的模版render函数了 如果有直接取出来
       return cache[key]
     }
 
-    // compile
+    // compile 执行编译
     var compiled = compile(template, options);
 
     // check compilation errors/tips
@@ -13039,11 +13040,11 @@ function createCompilerCreator(baseCompile) {
           };
         }
         // merge custom modules
-        if (options.modules) {
+        if (options.modules) { // 将baseoptions和用户的配置modules进行合并 数组合并
           finalOptions.modules =
             (baseOptions.modules || []).concat(options.modules);
         }
-        // merge custom directives
+        // merge custom directives 合并 directives 严格对象
         if (options.directives) {
           finalOptions.directives = extend(
             Object.create(baseOptions.directives || null),
@@ -13051,7 +13052,7 @@ function createCompilerCreator(baseCompile) {
           );
         }
         // copy other options
-        for (var key in options) {
+        for (var key in options) { // 除此之外 直接根据key值进行赋值
           if (key !== 'modules' && key !== 'directives') {
             finalOptions[key] = options[key];
           }
@@ -13060,6 +13061,7 @@ function createCompilerCreator(baseCompile) {
 
       finalOptions.warn = warn;
 
+      // 通过合并后的配置，通过基础编译器进行模版编译 最终返回编译结果
       var compiled = baseCompile(template.trim(), finalOptions);
       if (process.env.NODE_ENV !== 'production') {
         detectErrors(compiled.ast, warn);
@@ -13081,14 +13083,19 @@ function createCompilerCreator(baseCompile) {
 // `createCompilerCreator` allows creating compilers that use alternative
 // parser/optimizer/codegen, e.g the SSR optimizing compiler.
 // Here we just export a default compiler using the default parts.
+// 创建编译器 传入基础编译器
 var createCompiler = createCompilerCreator(function baseCompile(
   template,
   options
 ) {
+  // 解析成抽象语法树
   var ast = parse(template.trim(), options);
+
   if (options.optimize !== false) {
+    // 优化抽象语法树
     optimize(ast, options);
   }
+  // 通过语法书去生成静态的字符串代码
   var code = generate(ast, options);
   return {
     ast: ast,
