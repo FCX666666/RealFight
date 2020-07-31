@@ -8106,6 +8106,12 @@ function getBindingAttr(
 // doesn't get processed by processAttrs.
 // By default it does NOT remove it from the map (attrsMap) because the map is
 // needed during codegen.
+/**
+ * 
+ * @param {*} el ast
+ * @param {*} name key v-for v-if之类的
+ * @param {*} removeFromMap 是否删除
+ */
 function getAndRemoveAttr(
   el,
   name,
@@ -10379,13 +10385,18 @@ function decodeAttr(value, shouldDecodeNewlines) {
   })
 }
 
+/**
+ * 解析html
+ * @param {*} html  template模版
+ * @param {*} options 配置
+ */
 function parseHTML(html, options) {
   var stack = [];
   var expectHTML = options.expectHTML;
   var isUnaryTag$$1 = options.isUnaryTag || no;
   var canBeLeftOpenTag$$1 = options.canBeLeftOpenTag || no;
-  var index = 0;
-  var last, lastTag;
+  var index = 0; // 当前解析到的索引
+  var last, lastTag; // 上次解析的文本和上次解析的标签
   while (html) {
     last = html;
     // Make sure we're not in a plaintext content element like script/style
@@ -10393,11 +10404,11 @@ function parseHTML(html, options) {
       var textEnd = html.indexOf('<');
       if (textEnd === 0) {
         // Comment:
-        if (comment.test(html)) {
+        if (comment.test(html)) { // 注释节点的判断
           var commentEnd = html.indexOf('-->');
 
           if (commentEnd >= 0) {
-            if (options.shouldKeepComment) {
+            if (options.shouldKeepComment) { // 判断最终是否需要保留注释节点 如果保留去创建一个注释节点的ast
               options.comment(html.substring(4, commentEnd), index, index + commentEnd + 3);
             }
             advance(commentEnd + 3);
@@ -10406,7 +10417,7 @@ function parseHTML(html, options) {
         }
 
         // http://en.wikipedia.org/wiki/Conditional_comment#Downlevel-revealed_conditional_comment
-        if (conditionalComment.test(html)) {
+        if (conditionalComment.test(html)) { // 判断当前针对某些特殊情况做的注释 例如 <![if ie 8]>
           var conditionalEnd = html.indexOf(']>');
 
           if (conditionalEnd >= 0) {
@@ -10513,11 +10524,17 @@ function parseHTML(html, options) {
   // Clean up any remaining tags
   parseEndTag();
 
+  /**
+   * 修改 index 并保留还没有解析的文本 需要不断通过调用advance去向后移动索引 不端去解析标签
+   */
   function advance(n) {
     index += n;
     html = html.substring(n);
   }
 
+  /**
+   * 解析开始标签
+   */
   function parseStartTag() {
     var start = html.match(startTagOpen);
     if (start) {
@@ -10729,6 +10746,7 @@ function parse(
   template,
   options
 ) {
+  // *********  解析options ********
   warn$2 = options.warn || baseWarn;
 
   platformIsPreTag = options.isPreTag || no;
@@ -10748,6 +10766,8 @@ function parse(
   var stack = [];
   var preserveWhitespace = options.preserveWhitespace !== false;
   var whitespaceOption = options.whitespace;
+
+  // ************* end **********
   var root;
   var currentParent;
   var inVPre = false;
@@ -10940,7 +10960,7 @@ function parse(
       if (!root) {
         root = element;
         if (process.env.NODE_ENV !== 'production') {
-          checkRootConstraints(root);
+          checkRootConstraints(root); // 检查是不是slot或者template节点
         }
       }
 
@@ -11143,12 +11163,17 @@ function processRef(el) {
   }
 }
 
+/**
+ * 处理v-for的语句内容
+ * @param {*} el   AST element
+ * 
+ */
 function processFor(el) {
   var exp;
   if ((exp = getAndRemoveAttr(el, 'v-for'))) {
     var res = parseFor(exp);
     if (res) {
-      extend(el, res);
+      extend(el, res); // 扩展到ast上
     } else if (process.env.NODE_ENV !== 'production') {
       warn$2(
         ("Invalid v-for expression: " + exp),
@@ -11159,37 +11184,43 @@ function processFor(el) {
 }
 
 
-
+/**
+ * 解析for
+ * @param {*} exp 
+ */
 function parseFor(exp) {
-  var inMatch = exp.match(forAliasRE);
+  var inMatch = exp.match(forAliasRE);  // (item,index,key) in|of object
   if (!inMatch) {
     return
   }
   var res = {};
   res.for = inMatch[2].trim();
-  var alias = inMatch[1].trim().replace(stripParensRE, '');
-  var iteratorMatch = alias.match(forIteratorRE);
-  if (iteratorMatch) {
-    res.alias = alias.replace(forIteratorRE, '').trim();
-    res.iterator1 = iteratorMatch[1].trim();
+  var alias = inMatch[1].trim().replace(stripParensRE, '');  // 去除括号
+  var iteratorMatch = alias.match(forIteratorRE); 
+  if (iteratorMatch) { // 判断需不需要索引或者key
+    res.alias = alias.replace(forIteratorRE, '').trim(); // 匹配到 item  也就是别名
+    res.iterator1 = iteratorMatch[1].trim(); // 匹配到索引 
     if (iteratorMatch[2]) {
-      res.iterator2 = iteratorMatch[2].trim();
+      res.iterator2 = iteratorMatch[2].trim(); // 如果是对象 允许传入第三个值 为 key
     }
-  } else {
+  } else { // 直接将值拿过来
     res.alias = alias;
   }
   return res
 }
 
+/**
+ * 处理v-if
+ */
 function processIf(el) {
   var exp = getAndRemoveAttr(el, 'v-if');
-  if (exp) {
+  if (exp) { // 判断if语句
     el.if = exp;
     addIfCondition(el, {
       exp: exp,
       block: el
     });
-  } else {
+  } else { // 如果没有v-if就去处理v-else  v-else-if
     if (getAndRemoveAttr(el, 'v-else') != null) {
       el.else = true;
     }
@@ -11234,6 +11265,11 @@ function findPrevElement(children) {
   }
 }
 
+/**
+ * 向ast的vif判断条件数组中添加当前表达式
+ * @param {*} el 
+ * @param {*} condition v-if 的表达式
+ */
 function addIfCondition(el, condition) {
   if (!el.ifConditions) {
     el.ifConditions = [];
@@ -11241,6 +11277,10 @@ function addIfCondition(el, condition) {
   el.ifConditions.push(condition);
 }
 
+/**
+ * 处理 v-once
+ * @param {*} el 
+ */
 function processOnce(el) {
   var once$$1 = getAndRemoveAttr(el, 'v-once');
   if (once$$1 != null) {
@@ -11773,6 +11813,8 @@ var genStaticKeysCached = cached(genStaticKeys$1);
  * 1. Hoist them into constants, so that we no longer need to
  *    create fresh nodes for them on each re-render;
  * 2. Completely skip them in the patching process.
+ * 
+ * 对ast进行静态标记 在render过程中可以避免编译第一次编译后就一直不变的内容
  */
 function optimize(root, options) {
   if (!root) {
@@ -11780,9 +11822,10 @@ function optimize(root, options) {
   }
   isStaticKey = genStaticKeysCached(options.staticKeys || '');
   isPlatformReservedTag = options.isReservedTag || no;
-  // first pass: mark all non-static nodes.
+  // 两次过滤都是一个深度遍历的过程 不断递归 让整个ast的每个节点都做一遍过滤
+  // first pass: mark all non-static nodes.  第一次过滤 简单标记静态节点
   markStatic$1(root);
-  // second pass: mark static roots.
+  // second pass: mark static roots.  第二次过滤 详细过滤 对于一些特殊情况的节点和子节点类型进行条件判断 主要针对只包含一个文本/注释节点的ast进行过滤 
   markStaticRoots(root, false);
 }
 
@@ -11793,12 +11836,15 @@ function genStaticKeys$1(keys) {
   )
 }
 
+/**
+ * 
+ */
 function markStatic$1(node) {
-  node.static = isStatic(node);
+  node.static = isStatic(node); // 判断当前节点是不是静态的
   if (node.type === 1) {
-    // do not make component slot content static. this avoids
-    // 1. components not able to mutate slot nodes
-    // 2. static slot content fails for hot-reloading
+    // do not make component slot content static. this avoids  不要将组件 slot节点设置为静态的  这将造成
+    // 1. components not able to mutate slot nodes  组件不能计算插槽节点
+    // 2. static slot content fails for hot-reloading 静态节点会让热加载失效
     if (
       !isPlatformReservedTag(node.tag) &&
       node.tag !== 'slot' &&
@@ -11808,12 +11854,12 @@ function markStatic$1(node) {
     }
     for (var i = 0, l = node.children.length; i < l; i++) {
       var child = node.children[i];
-      markStatic$1(child);
-      if (!child.static) {
+      markStatic$1(child); // 递归进行静态节点的标记
+      if (!child.static) { // 当子节点不是静态的时候 父节点肯定也不可能是静态的
         node.static = false;
       }
     }
-    if (node.ifConditions) {
+    if (node.ifConditions) { // 判断包含v-if的情况
       for (var i$1 = 1, l$1 = node.ifConditions.length; i$1 < l$1; i$1++) {
         var block = node.ifConditions[i$1].block;
         markStatic$1(block);
@@ -11825,15 +11871,20 @@ function markStatic$1(node) {
   }
 }
 
+/**
+ * 
+ * @param {*} node 
+ * @param {*} isInFor 判断是不是在v-for里面
+ */
 function markStaticRoots(node, isInFor) {
   if (node.type === 1) {
     if (node.static || node.once) {
       node.staticInFor = isInFor;
     }
-    // For a node to qualify as a static root, it should have children that
+    // For a node to qualify as a static root, it should have children that 
     // are not just static text. Otherwise the cost of hoisting out will
     // outweigh the benefits and it's better off to just always render it fresh.
-    if (node.static && node.children.length && !(
+    if (node.static && node.children.length && !( // 对于某些情况下 子节点只有一个元素 并且这个节点是一个文本节点或者是一个注释节点 就不把当前标记为一个静态的root 性能测试的结果
         node.children.length === 1 &&
         node.children[0].type === 3
       )) {
@@ -11855,6 +11906,10 @@ function markStaticRoots(node, isInFor) {
   }
 }
 
+/**
+ * 判断当前ast是不是静态的
+ * @param {*} node 
+ */
 function isStatic(node) {
   if (node.type === 2) { // expression
     return false
@@ -12106,10 +12161,6 @@ var baseDirectives = {
 
 /*  */
 
-
-
-
-
 var CodegenState = function CodegenState(options) {
   this.options = options;
   this.warn = options.warn || baseWarn;
@@ -12127,6 +12178,11 @@ var CodegenState = function CodegenState(options) {
 
 
 
+/**
+ * 生成vue的render函数
+ * @param {*} ast 
+ * @param {*} options 
+ */
 function generate(
   ast,
   options
@@ -12887,14 +12943,15 @@ function createFunction(code, errors) {
 }
 
 /**
- * 
- * @param {*} compile 编译器
+ * 真正去创建编译器的方法
+ * @param {*} compile 
  */
-function createCompileToFunctionFn(compile) {
+function createCompileToFunctionFn(compile) { 
   var cache = Object.create(null);
 
   /**
    * 把模版编译为render函数
+   * 调用处理后的编译器 继而调用核心编译器
    */
   return function compileToFunctions(
     template, // template
@@ -13001,13 +13058,13 @@ function createCompileToFunctionFn(compile) {
 
 /*  */
 /**
- * 构造编译器工厂  返回一个工厂函数 用于创建编译器
- * @param {*} baseCompile 基础编译器 
+ * 构造编译器工厂  返回一个工厂函数 用于创建编译器 只是简单将编译器进行封装到一个严格对象返回
+ * @param {*} baseCompile 基础编译器 核心编译步骤 会在编译器被调用的时候调用
  * @returns {Object}  返回一个工厂函数  接受编译器的配置 并返回一个对象包裹最终的编译器
  */
 function createCompilerCreator(baseCompile) {
   return function createCompiler(baseOptions) {
-    function compile(
+    function compile( // 封装过的编译器  处理了各种错误提示并将用户传入的options和基础的option合并  合并之后再去调用核心编译器
       template,
       options
     ) {
@@ -13083,7 +13140,7 @@ function createCompilerCreator(baseCompile) {
 // `createCompilerCreator` allows creating compilers that use alternative
 // parser/optimizer/codegen, e.g the SSR optimizing compiler.
 // Here we just export a default compiler using the default parts.
-// 创建编译器 传入基础编译器
+// 创建编译器 传入基础编译器 定义核心编译步骤 从繁杂的环境配置中进行抽离
 var createCompiler = createCompilerCreator(function baseCompile(
   template,
   options
@@ -13105,7 +13162,7 @@ var createCompiler = createCompilerCreator(function baseCompile(
 });
 
 /*  */
-
+// createCompilerCreator => createcompiler => createCompileToFunctionFn => compileToFunctions => compile => baseCompile => 真正开始编译步骤 「parse optimize generate」
 var ref$1 = createCompiler(baseOptions);
 var compile = ref$1.compile;
 var compileToFunctions = ref$1.compileToFunctions;
