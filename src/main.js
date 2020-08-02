@@ -117,7 +117,6 @@ Vue.component('my-cpn', function (resolve, reject) {
   }, 5000);
 })
 
-debugger
 new Vue({
   render: h => h(App),
   // router,

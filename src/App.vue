@@ -1,22 +1,10 @@
-<template>
-  <div id="app">
-    <!-- <div v-if="isShow"> -->
-      <!-- <my-cpn :cool='i'></my-cpn> -->
-    <!-- </div> -->
-    <!-- {{isShow}} 
-    {{name}} -->
-    {{name}}
-    {{zs}}
-    <button @click="show">click</button>
-    <!-- <main-tab-bar cool='i'></main-tab-bar> -->
-    <!-- <router-view></router-view> -->
-  </div>
-</template>
+
 
 <script>
 import MainTabBar from "components/content/MainTabBar";
 export default {
   name: "app",
+  template:' <div><button @click.prevent>click it</button> </div>',
   data: () => ({
     isShow: false,
     // i:'i am not on my-cpns props',
@@ -29,7 +17,8 @@ export default {
     MainTabBar
   },
   methods: {
-    show() {
+    show(a,e) {
+      console.log(e)
       this.isShow = !this.isShow
     }
   },

@@ -7989,6 +7989,18 @@ function prependModifierMarker(symbol, name, dynamic) {
     symbol + name // mark the event as captured
 }
 
+
+/**
+ * 
+ * @param {*} el ast
+ * @param {*} name 事件名
+ * @param {*} value 方法名
+ * @param {*} modifiers 修饰符
+ * @param {*} important 是不是优先调用当前方法
+ * @param {*} warn 警告方法
+ * @param {*} range 
+ * @param {*} dynamic 是不是动态方法
+ */
 function addHandler(
   el,
   name,
@@ -8064,7 +8076,7 @@ function addHandler(
 
   var handlers = events[name];
   /* istanbul ignore if */
-  if (Array.isArray(handlers)) {
+  if (Array.isArray(handlers)) { // 如果当前事件对应的方法是数组 可以通过传入的important来控制优先级
     important ? handlers.unshift(newHandler) : handlers.push(newHandler);
   } else if (handlers) {
     events[name] = important ? [newHandler, handlers] : [handlers, newHandler];
@@ -11461,6 +11473,10 @@ function processComponent(el) {
   }
 }
 
+/**
+ * 处理定义在模版上的属性  像是 v-on v-bind  @ : 等等
+ * @param {*} el 
+ */
 function processAttrs(el) {
   var list = el.attrsList;
   var i, l, name, rawName, value, modifiers, syncGen, isDynamic;
@@ -12004,6 +12020,7 @@ var genGuard = function (condition) {
   return ("if(" + condition + ")return null;");
 };
 
+// 对修饰符的代码进行添加 省了用户去加
 var modifierCode = {
   stop: '$event.stopPropagation();',
   prevent: '$event.preventDefault();',
@@ -12017,6 +12034,9 @@ var modifierCode = {
   right: genGuard("'button' in $event && $event.button !== 2")
 };
 
+/**
+ * 生成事件相关代码  添加了对动态绑定方法名的功能
+ */
 function genHandlers(
   events,
   isNative
@@ -12052,13 +12072,17 @@ function genHandler(handler) {
   }
 
   var isMethodPath = simplePathRE.test(handler.value);
+  // 判断是不是函数体 method 不带括号的
   var isFunctionExpression = fnExpRE.test(handler.value);
+   // 判断是不是函数体执行 后边带括号的  @click="method(xxx)"
   var isFunctionInvocation = simplePathRE.test(handler.value.replace(fnInvokeRE, ''));
 
   if (!handler.modifiers) {
     if (isMethodPath || isFunctionExpression) {
-      return handler.value
+      return handler.value // 如果是 show  没有括号就会直接返回show这个方法名
     }
+    // 这里会为传入的函数包裹一层新的函数，而这个新的函数内部持有一个$event，所以可以通过在我们定义的函数内部使用$event
+    // "function($event){return show(1)}"
     return ("function($event){" + (isFunctionInvocation ? ("return " + (handler.value)) : handler.value) + "}") // inline statement
   } else {
     var code = '';
@@ -12195,6 +12219,11 @@ function generate(
   }
 }
 
+/**
+ * 对于不同的情况进行不同的代码生成
+ * @param {*} el 
+ * @param {*} state 
+ */
 function genElement(el, state) {
   if (el.parent) {
     el.pre = el.pre || el.parent.pre;
@@ -12283,7 +12312,7 @@ function genIf(
   altGen,
   altEmpty
 ) {
-  el.ifProcessed = true; // avoid recursion
+  el.ifProcessed = true; // avoid recursion 避免递归调用
   return genIfConditions(el.ifConditions.slice(), state, altGen, altEmpty)
 }
 
@@ -12293,8 +12322,8 @@ function genIfConditions(
   altGen,
   altEmpty
 ) {
-  if (!conditions.length) {
-    return altEmpty || '_e()'
+  if (!conditions.length) {// 如果没有条件 就直接返回一个空节点
+    return altEmpty || '_e() '
   }
 
   var condition = conditions.shift();
