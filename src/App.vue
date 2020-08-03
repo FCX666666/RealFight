@@ -4,7 +4,7 @@
 import MainTabBar from "components/content/MainTabBar";
 export default {
   name: "app",
-  template:' <div><button @click.prevent>click it</button> </div>',
+  template:' <div><button @click="show">click it</button> </div>',
   data: () => ({
     isShow: false,
     // i:'i am not on my-cpns props',

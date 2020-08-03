@@ -2428,6 +2428,9 @@ function _traverse(val, seen) {
 
 /*  */
 
+/**
+ * 把编译阶段添加的解释符解析出来
+ */
 var normalizeEvent = cached(function (name) {
   var passive = name.charAt(0) === '&';
   name = passive ? name.slice(1) : name;
@@ -2443,6 +2446,9 @@ var normalizeEvent = cached(function (name) {
   }
 });
 
+/**
+ * 主要处理了函数数组的情况  封装一层新的函数去一次调用数组中的每个函数
+ */
 function createFnInvoker(fns, vm) {
   function invoker() {
     var arguments$1 = arguments;
@@ -2463,7 +2469,7 @@ function createFnInvoker(fns, vm) {
 }
 
 /**
- * 
+ * 供原生dom事件使用 也供用户事件调用
  * @param {*} on 
  * @param {*} oldOn 
  * @param {*} add 
@@ -2496,14 +2502,15 @@ function updateListeners(
         vm
       );
     } else if (isUndef(old)) {
-      if (isUndef(cur.fns)) {
+      if (isUndef(cur.fns)) { // 如果当前遍历事件对象还没有添加封装好的事件执行器
+        // 创建事件回调函数
         cur = on[name] = createFnInvoker(cur, vm);
       }
       if (isTrue(event.once)) {
         cur = on[name] = createOnceHandler(event.name, cur, event.capture);
       }
       add(event.name, cur, event.capture, event.passive, event.params);
-    } else if (cur !== old) {
+    } else if (cur !== old) { // 当老的方法存在的时候 就直接用新的替代旧的就可以了
       old.fns = cur;
       on[name] = old;
     }
@@ -3597,7 +3604,7 @@ function createComponent(
   // extract listeners, since these needs to be treated as 提取方法,data.on应该被处理为子组件$emit出来的方法而不是原生native的方法
   // child component listeners instead of DOM listeners data.on将保存到组件的占位vnode的componentsOptions 
   var listeners = data.on;
-  // replace with listeners with .native modifier // 将包含.native修饰符的方法添加到当前组件的vnodedata.on 作为当前组件的native方法
+  // replace with listeners with .native modifier // 将包含.native修饰符的方法添加到当前组件的vnodedata.on 作为当前组件的native方法 原生dom事件
   // so it gets processed during parent component patch. // nativeOn 将保留在当前组件的vnodedata中
   data.on = data.nativeOn;
 
@@ -3625,7 +3632,7 @@ function createComponent(
     data, undefined, undefined, undefined, context, { // components options
       Ctor: Ctor,
       propsData: propsData,
-      listeners: listeners, // 这个listener是自组件emit要触发的方法
+      listeners: listeners, // 这个listener是子组件emit要触发的方法
       tag: tag,
       children: children 
     },
@@ -4195,6 +4202,7 @@ function initEvents(vm) {
 
 var target;
 
+// 自定义时间的add方法
 function add(event, fn) {
   target.$on(event, fn);
 }
@@ -4229,9 +4237,10 @@ function eventsMixin(Vue) {
    * 以hook:开头
    */
   var hookRE = /^hook:/;
+  // 添加自定义事件
   Vue.prototype.$on = function (event, fn) {
     var vm = this;
-    if (Array.isArray(event)) {
+    if (Array.isArray(event)) { // 如果是个数组 遍历执行
       for (var i = 0, l = event.length; i < l; i++) {
         vm.$on(event[i], fn);
       }
@@ -4294,6 +4303,7 @@ function eventsMixin(Vue) {
     return vm
   };
 
+  // 触发事件
   Vue.prototype.$emit = function (event) {
     var vm = this;
     if (process.env.NODE_ENV !== 'production') {
@@ -5470,6 +5480,16 @@ function initMethods(vm, methods) {
         );
       }
     }
+    // 这里的bind极其重要 始终将当前method绑定在当前组件的作用域中  也就是当前组件实例
+    // 也就是说 当前组件的method中的this始终指向vm本身 也就是父组件的vm
+    // 这么做也就对应了vue中的编码规范 函数和属性定义在哪里 运行作用域就在哪里
+    // 在父子组件`通信`的过程中 其实本就不存在通信这一说法 当组件在初始化的时候 从占位节点上拿到的非native方法会在创建组件实例的时候
+    // 传递到子组件的事件中心中去 当子组件 $emit一个方法的时候就会 触发到事件中心的对应方法或者方法数组
+    // 从原理上讲 子组件实际上为自己派发了一个事件 而不是为父组件派发了一个事件 只不过触发了在自身属性 _event中心的中的方法
+    // 但是为什么会让使用者有一种组件通信的错觉呢？ 其根本原因就在这个bind方法 
+    // 这个bind方法把父组件的vm作为运行作用域硬绑定到了当前方法上边去
+    // 于是 ： 这个方法定义在父组件 运行在父组件 却保存在子组件 妙不可言 ！！！
+    // $on=>add  $once=>addOnce  $off=>remove  $emit=>invoke
     vm[key] = typeof methods[key] !== 'function' ? noop : bind(methods[key], vm);
   }
 }
@@ -5745,7 +5765,7 @@ function initInternalComponent(vm, options) { // 组件vm 及组件特异性的o
   var vnodeComponentOptions = parentVnode.componentOptions; // 把父组件里的vnode上的四个属性挂载到我们的$options上，提供给子组件去使用
 
   opts.propsData = vnodeComponentOptions.propsData; // 还是用那个例子来说，propsData就是根据:name="zs"生成的，
-  opts._parentListeners = vnodeComponentOptions.listeners; // 而_parentListeners就是根据 @hel-lo="hello" 生成的，值是hello这个定义在父组件中的方法。
+  opts._parentListeners = vnodeComponentOptions.listeners; // 而_parentListeners就是根据 @hel-lo="hello" 生成的，值是hello这个定义在父组件中的方法 是用户自定义的方法。
   opts._renderChildren = vnodeComponentOptions.children;
   opts._componentTag = vnodeComponentOptions.tag;
 
@@ -6555,6 +6575,7 @@ function registerRef(vnode, isRemoval) {
 
 var emptyNode = new VNode('', {}, []);
 
+// patch的各个时机调用的钩子函数
 var hooks = ['create', 'activate', 'update', 'remove', 'destroy'];
 
 /**
@@ -6614,7 +6635,7 @@ function createKeyToOldIdx(children, beginIdx, endIdx) {
   return map
 }
 
-// 800 行去创建patch
+// 800 行去创建patch方法
 function createPatchFunction(backend) {
   var i, j;
   var cbs = {};
@@ -6622,10 +6643,16 @@ function createPatchFunction(backend) {
   var modules = backend.modules;
   var nodeOps = backend.nodeOps;
 
+  /**
+   * 
+   */
   for (i = 0; i < hooks.length; ++i) {
     cbs[hooks[i]] = [];
     for (j = 0; j < modules.length; ++j) {
-      if (isDef(modules[j][hooks[i]])) {
+      // 模块包括  [attrs,klass,events,domProps,style,transition,ref,directive];
+      // 判断当前modules有没有定义当前hook modules对应dom-patch的每个模块 
+      if (isDef(modules[j][hooks[i]])) { 
+        // 如果有的话 就把当前模块的钩子添加到对应的时机中去 
         cbs[hooks[i]].push(modules[j][hooks[i]]);
       }
     }
@@ -6746,7 +6773,7 @@ function createPatchFunction(backend) {
         // insertedVnodeQueue 这个数组会将所有层级的子组件的vnode都拿到!
         createChildren(vnode, children, insertedVnodeQueue); // 创建完当前vnode对应的所有dom元素
         if (isDef(data)) {
-          // 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 组件根vnode insertedVnodeQueue 中。
+          // 在insert之前 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 组件根vnode insertedVnodeQueue 中。
           invokeCreateHooks(vnode, insertedVnodeQueue); // 执行各种钩子 更新attr 之类的
         }
         // 最后调用 insert 方法把 DOM 插入到父节点中，因为是递归调用，
@@ -6877,6 +6904,11 @@ function createPatchFunction(backend) {
     return isDef(vnode.tag) // 判断当前渲染vnode是不是又tag  如果又 当前vnode就是可挂载的
   }
 
+  /**
+   * 依次执行创建组件的各个必要的钩子函数 处理 class style listender ref directive等等属性
+   * @param {*} vnode 
+   * @param {*} insertedVnodeQueue 
+   */
   function invokeCreateHooks(vnode, insertedVnodeQueue) {
     for (var i$1 = 0; i$1 < cbs.create.length; ++i$1) {
       cbs.create[i$1](emptyNode, vnode);
@@ -8507,6 +8539,7 @@ function genDefaultModel(
 // it's important to place the event as the first in the array because
 // the whole point is ensuring the v-model callback gets called before
 // user-attached handlers.
+// 标准化v-model 事件标记，只能在运行时下确认
 function normalizeEvents(on) {
   /* istanbul ignore if */
   if (isDef(on[RANGE_TOKEN])) {
@@ -8541,6 +8574,9 @@ function createOnceHandler$1(event, handler, capture) {
 // safe to exclude.
 var useMicrotaskFix = isUsingMicroTask && !(isFF && Number(isFF[1]) <= 53);
 
+/**
+ * 为 dom 添加事件
+ */
 function add$1(
   name,
   handler,
@@ -8577,9 +8613,10 @@ function add$1(
       }
     };
   }
+  // dom-api 为当前元素添加事件
   target$1.addEventListener(
     name,
-    handler,
+    handler, // 当事件触发的时候 会触发到 createFnInvoker创建好的封装函数
     supportsPassive ? {
       capture: capture,
       passive: passive
@@ -8601,6 +8638,9 @@ function remove$2(
   );
 }
 
+/**
+ * 更新dom的事件钩子 会在初始化的时候触发 或者在更新的时候触发
+ */
 function updateDOMListeners(oldVnode, vnode) {
   if (isUndef(oldVnode.data.on) && isUndef(vnode.data.on)) {
     return
@@ -8608,12 +8648,14 @@ function updateDOMListeners(oldVnode, vnode) {
   var on = vnode.data.on || {};
   var oldOn = oldVnode.data.on || {};
   target$1 = vnode.elm;
-  normalizeEvents(on);
+  normalizeEvents(on); // 主要是处理v-model
   updateListeners(on, oldOn, add$1, remove$2, createOnceHandler$1, vnode.context);
   target$1 = undefined;
 }
 
 var events = {
+  // 对于事件  只会在created和update钩子时候做处理
+  // 调用时机是在初始化和更新组件的时候
   create: updateDOMListeners,
   update: updateDOMListeners
 };
