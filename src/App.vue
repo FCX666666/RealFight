@@ -4,7 +4,11 @@
 import MainTabBar from "components/content/MainTabBar";
 export default {
   name: "app",
-  template:' <div><button @click="show">click it</button> </div>',
+  template:`
+   <div>
+   <main-tab-bar v-model="zs.age" @click="show">click it</main-tab-bar> 
+    <button @click="zs.age+=1"> click </button> {{this.zs.age}}
+  </div>`,
   data: () => ({
     isShow: false,
     // i:'i am not on my-cpns props',

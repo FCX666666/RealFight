@@ -1,5 +1,6 @@
 <template>
   <tab-bar>
+    <input type="text" :value="value" @input="$emit('input',$event.target.value)"/>
     <tab-bar-item path="/home"  class='nav-xxx'>
       <!-- <img slot="item-icon"  alt="">
       <img slot="item-icon-active"  alt=""> -->
@@ -8,7 +9,7 @@
     <tab-bar-item path="/category" class='nav-ccc'>
       <!-- <img slot="item-icon" src="~assets/img/logo.png" alt="">
       <img slot="item-icon-active" src="~assets/img/logo.png" alt=""> -->
-      <div slot="item-text" @click="toggle">分类  {{cool}}</div>
+      <div slot="item-text" @click="toggle">分类 </div>
       
     </tab-bar-item>
     <!-- <tab-bar-item path="/cart">
@@ -34,17 +35,18 @@
       TabBarItem
     },
     mounted(){
-      this.cool = 2
+      // this.cool = 2
     },
     props:{
       cool:{
         type:String,
         required:false
-      }
+      },
+      value:Number
     },
     methods:{
       toggle(){
-        this.cool = 1000
+        // this.cool = 1000
       }
     }
   }

@@ -1776,7 +1776,7 @@ function mergeOptions( // 对于不同的属性合并策略不同
 }
 
 /**
- * Resolve an asset.
+ * Resolve an asset. 获取一个资源
  * This function is used because child instances need access
  * to assets defined in its ancestor chain.
  */
@@ -3588,7 +3588,7 @@ function createComponent(
   // 解析构造函数选项，以防在创建组件构造函数后应用全局mixin
   resolveConstructorOptions(Ctor);
 
-  // transform component v-model data into props & events 解析带有v-model的组件
+  // transform component v-model data into props & events 解析带有v-model的组件 把语法糖解析
   if (isDef(data.model)) {
     transformModel(Ctor.options, data);
   }
@@ -3688,8 +3688,12 @@ function mergeHook$1(f1, f2) {
 // transform component v-model info (value and callback) into
 // prop and event handler respectively.
 function transformModel(options, data) {
+  // 在组件内部定义的props.model = {props:'',event:'' }
+  // 实际上就是v-model绑定的内部的变量名是什么  :value="modelVal" 默认
+  // 当绑定的变量变化时候通过哪个方法回传回去 @input="modelVal = payload" 默认
   var prop = (options.model && options.model.prop) || 'value';
   var event = (options.model && options.model.event) || 'input';
+  //为当前vnodedata的attrs（html 属性集合）中添加当前属性prop复制给当前data.model
   (data.attrs || (data.attrs = {}))[prop] = data.model.value;
   var on = data.on || (data.on = {});
   var existing = on[event];
@@ -7561,15 +7565,18 @@ var directives = {
   }
 };
 
+// 更新指令
 function updateDirectives(oldVnode, vnode) {
   if (oldVnode.data.directives || vnode.data.directives) {
     _update(oldVnode, vnode);
   }
 }
 
+// 根据新旧vnode 进行指令的更新
 function _update(oldVnode, vnode) {
   var isCreate = oldVnode === emptyNode;
   var isDestroy = vnode === emptyNode;
+  // vnode.data.directives 
   var oldDirs = normalizeDirectives$1(oldVnode.data.directives, oldVnode.context);
   var newDirs = normalizeDirectives$1(vnode.data.directives, vnode.context);
 
@@ -7630,6 +7637,9 @@ function _update(oldVnode, vnode) {
 
 var emptyModifiers = Object.create(null);
 
+/**
+ * 对指令进行一次标准化 
+ */
 function normalizeDirectives$1(
   dirs,
   vm
@@ -7994,6 +8004,7 @@ function addRawAttr(el, name, value, range) {
   }, range));
 }
 
+// 为当前指令的ast添加一个指令属性对象
 function addDirective(
   el,
   name,
@@ -8191,6 +8202,7 @@ function getAndRemoveAttrByRegex(
   }
 }
 
+// 为item设置 rang值 如果没有 直接返回item
 function rangeSetItem(
   item,
   range
@@ -8242,6 +8254,9 @@ function genComponentModel(
 
 /**
  * Cross-platform codegen helper for generating v-model value assignment code.
+ * 解析v-model并返回字符串代码  
+ * 如果v-model解析出来了key 就通过$set方法去做赋值
+ * 否则直接将value和assignment用=做链接
  */
 function genAssignmentCode(
   value,
@@ -8367,6 +8382,9 @@ var warn$1;
 var RANGE_TOKEN = '__r';
 var CHECKBOX_RADIO_TOKEN = '__c';
 
+/**
+ * 根据ast树生成对应的代码
+ */
 function model(
   el,
   dir,
@@ -8378,6 +8396,7 @@ function model(
   var tag = el.tag;
   var type = el.attrsMap.type;
 
+  // 首先判断当前input是不是文件类型的 因为file类型的input是只读的
   if (process.env.NODE_ENV !== 'production') {
     // inputs with type="file" are read only and setting the input's
     // value will throw an error.
@@ -8400,10 +8419,10 @@ function model(
     genCheckboxModel(el, value, modifiers);
   } else if (tag === 'input' && type === 'radio') {
     genRadioModel(el, value, modifiers);
-  } else if (tag === 'input' || tag === 'textarea') {
+  } else if (tag === 'input' || tag === 'textarea') { // 处理默认input 
     genDefaultModel(el, value, modifiers);
-  } else if (!config.isReservedTag(tag)) {
-    genComponentModel(el, value, modifiers);
+  } else if (!config.isReservedTag(tag)) { // 如果不是保留字标签 就说明是一个组件
+    genComponentModel(el, value, modifiers); // 组件的v-model不需要运行时 生成组件的v-model代码
     // component v-model doesn't need extra runtime
     return false
   } else if (process.env.NODE_ENV !== 'production') {
@@ -8487,6 +8506,7 @@ function genDefaultModel(
 ) {
   var type = el.attrsMap.type;
 
+  // 首先排除v-bind 和v-model混用的情况 避免发生错误
   // warn if v-bind:value conflicts with v-model
   // except for inputs with v-bind:type
   if (process.env.NODE_ENV !== 'production') {
@@ -8522,11 +8542,14 @@ function genDefaultModel(
   }
 
   var code = genAssignmentCode(value, valueExpression);
-  if (needCompositionGuard) {
+  if (needCompositionGuard) { // 设置拼音时不触发赋值操作
     code = "if($event.target.composing)return;" + code;
   }
 
+   // v-model 实际上是v-bind的语法糖
+  // 实际上是添加了 :value="modelVal"
   addProp(el, 'value', ("(" + value + ")"));
+  // 然后为当前元素添加事件响应方法 @event="modelVal = $event.target.value"
   addHandler(el, event, code, null, true);
   if (trim || number) {
     addHandler(el, 'blur', '$forceUpdate()');
@@ -9583,14 +9606,16 @@ var directive = {
       if (oldVnode.elm && !oldVnode.elm._vOptions) {
         mergeVNodeHook(vnode, 'postpatch', function () {
           directive.componentUpdated(el, binding, vnode);
-        });
+        }); 
       } else {
         setSelected(el, binding, vnode.context);
       }
       el._vOptions = [].map.call(el.options, getValue);
     } else if (vnode.tag === 'textarea' || isTextInputType(el.type)) {
+       // 如果是文本输入类的输入框
       el._vModifiers = binding.modifiers;
       if (!binding.modifiers.lazy) {
+        // 为输入法设置的事件 也是v-model 和 v-bind+@input的方式对输入框处理呈现不同的处理方式的根本原因
         el.addEventListener('compositionstart', onCompositionStart);
         el.addEventListener('compositionend', onCompositionEnd);
         // Safari < 10.2 & UIWebView doesn't fire compositionend when
@@ -9688,10 +9713,12 @@ function getValue(option) {
     option.value
 }
 
+// 设置在进行拼音时的标志  一边在拼音的时候不触发input事件 
 function onCompositionStart(e) {
   e.target.composing = true;
 }
 
+// 在停止拼音的时候将标志符设置为false  这样在拼音结束之后就可以通过手动触发input事件去更新input框的数据
 function onCompositionEnd(e) {
   // prevent triggering an input event for no reason
   if (!e.target.composing) {
@@ -11157,6 +11184,7 @@ function processRawAttrs(el) {
   }
 }
 
+// 处理元素的属性  像是 v-model slot
 function processElement(
   element,
   options
@@ -11525,7 +11553,7 @@ function processAttrs(el) {
   for (i = 0, l = list.length; i < l; i++) {
     name = rawName = list[i].name;
     value = list[i].value;
-    if (dirRE.test(name)) {
+    if (dirRE.test(name)) { // 指令
       // mark element as dynamic
       el.hasBindings = true;
       // modifiers
@@ -11611,7 +11639,7 @@ function processAttrs(el) {
           name = name.slice(1, -1);
         }
         addHandler(el, name, value, modifiers, false, warn$2, list[i], isDynamic);
-      } else { // normal directives
+      } else { // normal directives v-model会走这里
         name = name.replace(dirRE, '');
         // parse arg
         var argMatch = name.match(argRE);
@@ -12418,10 +12446,11 @@ function genFor(
     '})'
 }
 
+// 构建vnodedata对象字符串
 function genData$2(el, state) {
   var data = '{';
 
-  // directives first.
+  // directives first.  优先生成指令 因为指令可能会改变ast的其他属性
   // directives may mutate the el's other properties before they are generated.
   var dirs = genDirectives(el, state);
   if (dirs) {
@@ -12504,6 +12533,9 @@ function genData$2(el, state) {
   return data
 }
 
+/**
+ * 根据ast生成指令代码
+ */
 function genDirectives(el, state) {
   var dirs = el.directives;
   if (!dirs) {
@@ -12515,7 +12547,7 @@ function genDirectives(el, state) {
   for (i = 0, l = dirs.length; i < l; i++) {
     dir = dirs[i];
     needRuntime = true;
-    var gen = state.directives[dir.name];
+    var gen = state.directives[dir.name]; // 拿到state对象中定义的平台相关的model()方法
     if (gen) {
       // compile-time directive that manipulates AST.
       // returns true if it also needs a runtime counterpart.
