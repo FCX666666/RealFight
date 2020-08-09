@@ -2203,7 +2203,7 @@ var pending = false;
 
 // 依次执行callbacks中的方法
 function flushCallbacks() {
-  pending = false; // 此时要执行所有回调 会许入栈的方法不必在等待了
+  pending = false; // 此时要执行所有回调 后续入栈的方法不必在等待了
   var copies = callbacks.slice(0);
   callbacks.length = 0;
   for (var i = 0; i < copies.length; i++) {
@@ -2438,12 +2438,14 @@ if (process.env.NODE_ENV !== 'production') {
 var seenObjects = new _Set();
 
 /**
+ * 深层的依赖收集
+ * 递归地遍历一个对象以唤起所有 getter，以便对象内的每个嵌套属性 作为“深层”依赖关系收集。
  * Recursively traverse an object to evoke all converted
  * getters, so that every nested property inside the object
  * is collected as a "deep" dependency.
  */
 function traverse(val) {
-  _traverse(val, seenObjects);
+  _traverse(val, seenObjects); // seenobjects 就是一个set集合
   seenObjects.clear();
 }
 
@@ -2451,25 +2453,28 @@ function _traverse(val, seen) {
   var i, keys;
   var isA = Array.isArray(val);
   if ((!isA && !isObject(val)) || Object.isFrozen(val) || val instanceof VNode) {
-    return
+    return // 排除特殊情况 
   }
-  if (val.__ob__) {
+  if (val.__ob__) { 
+    // 往set集合中添加没有添加过的depid 
+    // 前提是当前属性是对于那个类型且注册了响应式 
+    // 对于为注册响应式的对象是忽略记录的
     var depId = val.__ob__.dep.id;
     if (seen.has(depId)) {
       return
     }
     seen.add(depId);
   }
-  if (isA) {
+  if (isA) { // 是数组就递归调用去添加depid
     i = val.length;
     while (i--) {
-      _traverse(val[i], seen);
+      _traverse(val[i], seen); // 通过val[i]去出发val属性中的getter去进行深层的依赖收集
     }
-  } else {
+  } else { // 递归尚未添加depid的对象中的属性
     keys = Object.keys(val);
     i = keys.length;
     while (i--) {
-      _traverse(val[keys[i]], seen);
+      _traverse(val[keys[i]], seen); // 触发getter去收集依赖
     }
   }
 }
@@ -2478,6 +2483,7 @@ function _traverse(val, seen) {
 
 /**
  * 把编译阶段添加的解释符解析出来
+ * 最后返回一个对象 标记当前方法的特性
  */
 var normalizeEvent = cached(function (name) {
   var passive = name.charAt(0) === '&';
@@ -2494,8 +2500,11 @@ var normalizeEvent = cached(function (name) {
   }
 });
 
-/**
- * 主要处理了函数数组的情况  封装一层新的函数去一次调用数组中的每个函数
+/** 
+ * 封装一层新的函数去一次调用数组中的每个函数
+ * 返回一个invoker 是一个封装层的函数
+ * 真正执行的函数在involer.fns的函数数组内 
+ * 在调用前不断操作这个数组 方便快捷
  */
 function createFnInvoker(fns, vm) {
   function invoker() {
@@ -2526,7 +2535,7 @@ function createFnInvoker(fns, vm) {
  * @param {*} vm 
  */
 function updateListeners(
-  on, // 
+  on, 
   oldOn,
   add,
   remove$$1,
@@ -2544,7 +2553,7 @@ function updateListeners(
     //   passive: passive
     // }
     event = normalizeEvent(name); // 将会返回一个对象 包裹当前对象触发的方式 
-    if (isUndef(cur)) {
+    if (isUndef(cur)) { // 在没有当前事件定义的情况下
       process.env.NODE_ENV !== 'production' && warn(
         "Invalid handler for event \"" + (event.name) + "\": got " + String(cur),
         vm
@@ -2554,16 +2563,16 @@ function updateListeners(
         // 创建事件回调函数
         cur = on[name] = createFnInvoker(cur, vm);
       }
-      if (isTrue(event.once)) {
+      if (isTrue(event.once)) { // 如果是只调用一次 就创建执行一次的函数
         cur = on[name] = createOnceHandler(event.name, cur, event.capture);
       }
       add(event.name, cur, event.capture, event.passive, event.params);
-    } else if (cur !== old) { // 当老的方法存在的时候 就直接用新的替代旧的就可以了
+    } else if (cur !== old) { // 当老的方法存在的时候 就直接用新的方法数组替代旧的就可以了
       old.fns = cur;
       on[name] = old;
     }
   }
-  for (name in oldOn) {
+  for (name in oldOn) { // 最后遍历老事件去移除这个事件
     if (isUndef(on[name])) {
       event = normalizeEvent(name);
       remove$$1(event.name, oldOn[name], event.capture);
@@ -2573,31 +2582,39 @@ function updateListeners(
 
 /*  */
 
+/**
+ * 合并vnode生命钩子函数 
+ * 将hook合并到vnode的当前生命周期去执行
+ * @param {*} def 
+ * @param {*} hookKey 
+ * @param {*} hook 
+ */
 function mergeVNodeHook(def, hookKey, hook) {
-  if (def instanceof VNode) {
+  if (def instanceof VNode) { // 如果传入了一个vnode 就拿出data.hook
     def = def.data.hook || (def.data.hook = {});
   }
   var invoker;
   var oldHook = def[hookKey];
 
   function wrappedHook() {
+    // 执行一次钩子函数 然后从数组中移除 避免反复执行和内存泄漏
     hook.apply(this, arguments);
     // important: remove merged hook to ensure it's called only once
     // and prevent memory leak
     remove(invoker.fns, wrappedHook);
   }
 
-  if (isUndef(oldHook)) {
+  if (isUndef(oldHook)) {// 没有旧钩子 就直接添加一个新的进去
     // no existing hook
     invoker = createFnInvoker([wrappedHook]);
   } else {
     /* istanbul ignore if */
-    if (isDef(oldHook.fns) && isTrue(oldHook.merged)) {
+    if (isDef(oldHook.fns) && isTrue(oldHook.merged)) { //合并过后就肯定是个数组 直接添加进去
       // already a merged invoker
       invoker = oldHook;
       invoker.fns.push(wrappedHook);
     } else {
-      // existing plain hook
+      // existing plain hook 第一次就创建一个数组搁进去
       invoker = createFnInvoker([oldHook, wrappedHook]);
     }
   }
@@ -2619,9 +2636,9 @@ function extractPropsFromVNodeData(
   Ctor,
   tag
 ) {
-  // we are only extracting raw values here.
+  // we are only extracting raw values here. 提取
   // validation and default values are handled in the child
-  // component itself.
+  // component itself. 验证和默认值是在自组件中完成的
   var propOptions = Ctor.options.props;
   if (isUndef(propOptions)) {
     return
@@ -2651,7 +2668,7 @@ function extractPropsFromVNodeData(
       // 首先在props查找 如果没有就会在attrs进行查找 
       // 带有: 会编译成props  没有: 会编译成attrs 
       // 只要是定义在组件的props属性中的,会在占位节点attr和props进行查找,合并到props中去
-      // props优先级更高
+      // props优先级更高 就算是没有带：的attrs也可能会添加到res.props中去
       checkProp(res, props, key, altKey, true) ||
         checkProp(res, attrs, key, altKey, false);
     }
@@ -2686,7 +2703,7 @@ function checkProp(
       if (!preserve) {
         delete hash[altKey];
       }
-      return true
+      return true // 取到了就返回true
     }
   }
   return false
@@ -2729,12 +2746,16 @@ function simpleNormalizeChildren(children) {
 // Vue.js 从接口层面允许用户把 children 写成基础类型用来创建单个简单的文本节点，这种情况会调用 createTextVNode 创建一个文本节点的 VNode；
 // 另一个场景是当编译 slot、v-for 的时候会产生嵌套数组的情况，会调用 normalizeArrayChildren 方法
 function normalizeChildren(children) {
-  return isPrimitive(children) ? [createTextVNode(children)] :
+  return isPrimitive(children) ? [createTextVNode(children)] : // 对于primitive值  直接创建文本vnode
     Array.isArray(children) ?
     normalizeArrayChildren(children) :
     undefined
 }
 
+/**
+ * 是不是文本节点
+ * @param {*} node 
+ */
 function isTextNode(node) {
   return isDef(node) && isDef(node.text) && isFalse(node.isComment)
 }
@@ -2796,6 +2817,10 @@ function normalizeArrayChildren(children, nestedIndex) {
 
 /*  */
 
+/**
+ * 初始化provide属性
+ * @param {*} vm 
+ */
 function initProvide(vm) {
   var provide = vm.$options.provide;
   if (provide) {
@@ -2805,11 +2830,14 @@ function initProvide(vm) {
   }
 }
 
+/**
+ * 初始话injection
+ */
 function initInjections(vm) {
   var result = resolveInject(vm.$options.inject, vm);
   if (result) {
-    toggleObserving(false);
-    Object.keys(result).forEach(function (key) {
+    toggleObserving(false); // 在注册响应式的时候不需要为对象类型注册深层的响应式
+    Object.keys(result).forEach(function (key) { // inject也是不推荐用户去修改的 也是会被上层组件重新渲染时候覆盖
       /* istanbul ignore else */
       if (process.env.NODE_ENV !== 'production') {
         defineReactive$$1(vm, key, result[key], function () {
@@ -2821,13 +2849,18 @@ function initInjections(vm) {
           );
         });
       } else {
-        defineReactive$$1(vm, key, result[key]);
+        defineReactive$$1(vm, key, result[key]); // 定义响应式
       }
     });
     toggleObserving(true);
   }
 }
 
+/**
+ * 获得注入值
+ * @param {*} inject  opts.injection
+ * @param {*} vm 
+ */
 function resolveInject(inject, vm) {
   if (inject) {
     // inject is :any because flow is not smart enough to figure out cached
@@ -2836,28 +2869,28 @@ function resolveInject(inject, vm) {
       Reflect.ownKeys(inject) :
       Object.keys(inject);
 
-    for (var i = 0; i < keys.length; i++) {
+    for (var i = 0; i < keys.length; i++) { // 遍历inject中的keys
       var key = keys[i];
       // #6574 in case the inject object is observed...
-      if (key === '__ob__') {
+      if (key === '__ob__') { // 如果已经是一个响应式的了 直接跳过 例如（Vue.observe({})）
         continue
       }
-      var provideKey = inject[key].from;
+      var provideKey = inject[key].from; // 拿到提供的组件中的当前需要属性的名字
       var source = vm;
       while (source) {
-        if (source._provided && hasOwn(source._provided, provideKey)) {
+        if (source._provided && hasOwn(source._provided, provideKey)) { // 获取值
           result[key] = source._provided[provideKey];
           break
         }
-        source = source.$parent;
+        source = source.$parent; // 不断遍历父组件树 去拿值
       }
       if (!source) {
-        if ('default' in inject[key]) {
+        if ('default' in inject[key]) { // 如果没有获取到值就去拿当前组件设置的默认值
           var provideDefault = inject[key].default;
           result[key] = typeof provideDefault === 'function' ?
-            provideDefault.call(vm) :
+            provideDefault.call(vm) : // 支持一个方法
             provideDefault;
-        } else if (process.env.NODE_ENV !== 'production') {
+        } else if (process.env.NODE_ENV !== 'production') { // 找也没找到 也没有设置默认值 报错
           warn(("Injection \"" + key + "\" not found"), vm);
         }
       }
@@ -2872,8 +2905,8 @@ function resolveInject(inject, vm) {
 
 /**
  * Runtime helper for resolving raw children VNodes into a slot object.
- * 遍历父组件中定义的vnode数组 不只是slot内的元素
- * 
+ * 遍历父组件中编译来的所有孩子vnode数组 不只是slot内的元素
+ * 提取插槽资源
  */
 function resolveSlots(
   children,
@@ -2883,23 +2916,26 @@ function resolveSlots(
     return {}
   }
   var slots = {};
-  for (var i = 0, l = children.length; i < l; i++) {
+  for (var i = 0, l = children.length; i < l; i++) { // 遍历孩子vnode
     var child = children[i];
-    var data = child.data;
-    // remove slot attribute if the node is resolved as a Vue slot node
+    var data = child.data; // vnodedata
+    // remove slot attribute if the node is resolved as a Vue slot node ？？why
     if (data && data.attrs && data.attrs.slot) {
       delete data.attrs.slot;
     }
     // named slots should only be respected if the vnode was rendered in the
     // same context.
-    // 判断当前vnode的上下文是不是父组件的上下文  或者是函数组件上下文是不是父组件
+    // 判断当前vnode的上下文是不是父组件的上下文  或者是函数组件上下文是不是父组件上下文
     if ((child.context === context || child.fnContext === context) &&
-      data && data.slot != null
+      data && data.slot != null // 并且vnodedata不为空
     ) {
       var name = data.slot; // 当前vnode的child 如果是具名插槽的话就会有name
       var slot = (slots[name] || (slots[name] = [])); // 为当前插槽定义一个数组 根据vnodedata.slot
       if (child.tag === 'template') {
-        slot.push.apply(slot, child.children || []); // 如果当前标签是一个template 就把其children-vnode 通过apply添加到当前数组中去 利用了apply的技巧 因为apply会将数组拆成单个参数传入到目标数组中去  因为push方法支持任意多个参数的添加
+        // 如果当前标签是一个template 就把其children-vnode 
+        // 通过apply添加到当前数组中去 利用了apply的技巧 因为apply会将数组拆成单个参数传入到目标数组中去 
+        // 因为push方法支持任意多个参数的添加
+        slot.push.apply(slot, child.children || []); 
       } else {
         slot.push(child); // 如果不是template 就直接把当前vnode添加到数组中去
       }
@@ -2907,7 +2943,7 @@ function resolveSlots(
       (slots.default || (slots.default = [])).push(child);
     }
   }
-  // ignore slots that contains only whitespace 忽略空节点
+  // ignore slots that contains only whitespace 忽略空插槽节点
   for (var name$1 in slots) {
     if (slots[name$1].every(isWhitespace)) {
       delete slots[name$1];
@@ -2916,12 +2952,13 @@ function resolveSlots(
   return slots
 }
 
+// 判断无意义的vnode
 function isWhitespace(node) {
   return (node.isComment && !node.asyncFactory) || node.text === ' '
 }
 
 /*  */
-// 编辑作用域插槽 
+// 标准化作用域插槽 
 function normalizeScopedSlots(
   slots,
   normalSlots,
@@ -3694,7 +3731,7 @@ function createComponent(
       propsData: propsData, // 组件中props定义的属性 可能来自站位节点的props或者attrs
       listeners: listeners, // 这个listener是子组件emit要触发的方法
       tag: tag,
-      children: children 
+      children: children //当前vnode的孩子vnode数组
     },
     asyncFactory
   );
@@ -4312,6 +4349,8 @@ function eventsMixin(Vue) {
         vm.$on(event[i], fn);
       }
     } else {
+      // $on只不过是简单的通过数组保存需要触发的方法
+      // 在$emit的时候去触发他们
       (vm._events[event] || (vm._events[event] = [])).push(fn);
       // optimize hook:event cost by using a boolean flag marked at registration
       // instead of a hash lookup
