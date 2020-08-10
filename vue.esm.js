@@ -10057,12 +10057,24 @@ var platformDirectives = {
 
 /*  */
 
+/**
+ * transition 组件的props属性
+ */
 var transitionProps = {
-  name: String,
+  // string，用于自动生成 CSS 过渡类名  没传默认v
+  name: String, 
+  // boolean，是否在初始渲染时使用过渡。默认为 false
   appear: Boolean,
-  css: Boolean,
-  mode: String,
+  // boolean，是否使用 CSS 过渡类。默认为 true。如果设置为 false，
+  // 将只通过组件事件触发注册的 JavaScript 钩子。
+  css: Boolean, 
+  //string，控制离开/进入过渡的时间序列。有效的模式有 "out-in" 和 "in-out"；默认同时进行
+  mode: String, 
+  //string，指定过渡事件类型，侦听过渡何时结束。有效值为 "transition" 和 "animation"。
+  //默认 Vue.js 将自动检测出持续时间长的为过渡事件类型。
   type: String,
+
+  // 样式
   enterClass: String,
   leaveClass: String,
   enterToClass: String,
@@ -10072,11 +10084,16 @@ var transitionProps = {
   appearClass: String,
   appearActiveClass: String,
   appearToClass: String,
+
+
+  //- number | { enter: number, leave: number } 指定过渡的持续时间。
+  //默认情况下，Vue 会等待过渡所在根元素的第一个 transitionend 或 animationend 事件
   duration: [Number, String, Object]
 };
 
 // in case the child is also an abstract component, e.g. <keep-alive>
 // we want to recursively retrieve the real component to be rendered
+// 获取真实的child  有可能抽象节点的孩子还是抽象节点
 function getRealChild(vnode) {
   var compOptions = vnode && vnode.componentOptions;
   if (compOptions && compOptions.Ctor.options.abstract) {
@@ -10086,6 +10103,7 @@ function getRealChild(vnode) {
   }
 }
 
+// 简单提取transition vnodedata 传入组件vm
 function extractTransitionData(comp) {
   var data = {};
   var options = comp.$options;
@@ -10102,6 +10120,7 @@ function extractTransitionData(comp) {
   return data
 }
 
+// 如果当前vnode的tag是 数字-keep-alive 就创建占位节点vnode
 function placeholder(h, rawChild) {
   if (/\d-keep-alive$/.test(rawChild.tag)) {
     return h('keep-alive', {
@@ -10110,6 +10129,7 @@ function placeholder(h, rawChild) {
   }
 }
 
+// 判断父级节点中有没有transition属性 
 function hasParentTransition(vnode) {
   while ((vnode = vnode.parent)) {
     if (vnode.data.transition) {
@@ -10117,15 +10137,17 @@ function hasParentTransition(vnode) {
     }
   }
 }
-
+// 判断新老vnode是不是同一个节点
 function isSameChild(child, oldChild) {
   return oldChild.key === child.key && oldChild.tag === child.tag
 }
 
+// 过滤文本节点（文本节点没有tag） 和异步组件站位节点
 var isNotTextNode = function (c) {
   return c.tag || isAsyncPlaceholder(c);
 };
 
+// 判断是不是v-show
 var isVShowDirective = function (d) {
   return d.name === 'show';
 };
@@ -10137,13 +10159,17 @@ var Transition = {
 
   render: function render(h) {
     var this$1 = this;
-
+    // 抽象组件第一步都是先把子节点都拿出来
+    // 也就是说在抽象组件就是为了父组件插槽传入的东西赋予一些功能
+    // 像是缓存 - keepalive
+    // 或是动画效果 - transition
     var children = this.$slots.default;
     if (!children) {
       return
     }
 
     // filter out text nodes (possible whitespaces)
+    // 过滤文本节点
     children = children.filter(isNotTextNode);
     /* istanbul ignore if */
     if (!children.length) {
@@ -10151,6 +10177,7 @@ var Transition = {
     }
 
     // warn multiple elements
+    // 提示 如果当前transition传入了多节点 弹出提示 建议只有一个子节点
     if (process.env.NODE_ENV !== 'production' && children.length > 1) {
       warn(
         '<transition> can only be used on a single element. Use ' +
@@ -10159,6 +10186,7 @@ var Transition = {
       );
     }
 
+    // 获取当前动画模式
     var mode = this.mode;
 
     // warn invalid mode
@@ -10171,22 +10199,26 @@ var Transition = {
       );
     }
 
+    // 获取需要添加动画的节点vnode
     var rawChild = children[0];
 
     // if this is a component root node and the component's
     // parent container node also has transition, skip.
+    // 如果当前vnode的站位节点的父级中已经有了transition 直接跳过 返回当前vnode
     if (hasParentTransition(this.$vnode)) {
       return rawChild
     }
 
     // apply transition data to child
     // use getRealChild() to ignore abstract components e.g. keep-alive
+    // 对于抽象的节点 需要获取到当前真实的非抽象节点
     var child = getRealChild(rawChild);
     /* istanbul ignore if */
     if (!child) {
       return rawChild
     }
 
+    // 判断是不是离开状态 直接返回占位节点 （undefined）
     if (this._leaving) {
       return placeholder(h, rawChild)
     }
@@ -10194,56 +10226,60 @@ var Transition = {
     // ensure a key that is unique to the vnode type and to this transition
     // component instance. This key will be used to remove pending leaving nodes
     // during entering.
+    // 确保vnode类型和这个transition组件实例的键是唯一的。
+    // 这个key将用于在enter期间删除挂起的离开节点。
     var id = "__transition-" + (this._uid) + "-";
     child.key = child.key == null ?
-      child.isComment ?
+      child.isComment ? // 如果是注释节点
       id + 'comment' :
       id + child.tag :
-      isPrimitive(child.key) ?
+      isPrimitive(child.key) ? // 判断是不是primitive值
       (String(child.key).indexOf(id) === 0 ? child.key : id + child.key) :
-      child.key;
+      child.key; // 如果有key  直接返回
 
     var data = (child.data || (child.data = {})).transition = extractTransitionData(this);
-    var oldRawChild = this._vnode;
-    var oldChild = getRealChild(oldRawChild);
+    var oldRawChild = this._vnode; // 当前vm对应的渲染vnode
+    var oldChild = getRealChild(oldRawChild);// 获取渲染vnode的真实子节点
 
     // mark v-show
     // so that the transition module can hand over the control to the directive
+    // 以便 transition 可以将控制权移交给指令
     if (child.data.directives && child.data.directives.some(isVShowDirective)) {
       child.data.show = true;
     }
 
     if (
       oldChild &&
-      oldChild.data &&
+      oldChild.data && // 旧节点存在 去替换他
       !isSameChild(child, oldChild) &&
-      !isAsyncPlaceholder(oldChild) &&
+      !isAsyncPlaceholder(oldChild) && // 并且新旧节点不是相同且旧节点不是站位节点
       // #6687 component root is a comment node
       !(oldChild.componentInstance && oldChild.componentInstance._vnode.isComment)
     ) {
       // replace old child transition data with fresh one
       // important for dynamic transitions!
+      // 用新的transition去替换老的是动态转换的重要步骤
       var oldData = oldChild.data.transition = extend({}, data);
       // handle transition mode
-      if (mode === 'out-in') {
+      if (mode === 'out-in') { // 现出后入
         // return placeholder node and queue update when leave finishes
-        this._leaving = true;
-        mergeVNodeHook(oldData, 'afterLeave', function () {
-          this$1._leaving = false;
-          this$1.$forceUpdate();
+        this._leaving = true; // 将当前节点状态置为正在离开
+        mergeVNodeHook(oldData, 'afterLeave', function () { // 合并钩子
+          this$1._leaving = false; // 状态变化
+          this$1.$forceUpdate(); // 在离开后强制更新视图
         });
-        return placeholder(h, rawChild)
-      } else if (mode === 'in-out') {
+        return placeholder(h, rawChild) // undefined
+      } else if (mode === 'in-out') { // 先入后出
         if (isAsyncPlaceholder(child)) {
           return oldRawChild
         }
         var delayedLeave;
-        var performLeave = function () {
+        var performLeave = function () { 
           delayedLeave();
         };
-        mergeVNodeHook(data, 'afterEnter', performLeave);
-        mergeVNodeHook(data, 'enterCancelled', performLeave);
-        mergeVNodeHook(oldData, 'delayLeave', function (leave) {
+        mergeVNodeHook(data, 'afterEnter', performLeave); // 进入之后开始渲染离开动画
+        mergeVNodeHook(data, 'enterCancelled', performLeave); // 进入被中断也渲染离开动画
+        mergeVNodeHook(oldData, 'delayLeave', function (leave) { // 
           delayedLeave = leave;
         });
       }
