@@ -1322,7 +1322,7 @@ function del(target, key) {
 /**
  * Collect dependencies on array elements when the array is touched, since
  * we cannot intercept array element access like property getters.
- * 收集数组每个元素的依赖 因为不能通过getter拦截访问去收集依赖
+ * 收集数组每个对象元素的依赖 因为不能通过getter拦截访问去收集依赖 而primitive值不需要去添加依赖  因为每次操作完数组后都会进行一次视图更新
  * obeserveArray()的时候已经为每个数组元素(非primitive)添加了__ob__ 需要为__ob__depend递归进行依赖收集
  */
 function dependArray(value) {
