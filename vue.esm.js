@@ -3642,6 +3642,7 @@ var componentVNodeHooks = {
     );
   },
 
+  // insertvnodequeue会依次执行所有的数组内的vnode 的 inset钩子函数 
   insert: function insert(vnode) {
     var context = vnode.context;
     var componentInstance = vnode.componentInstance;
@@ -3663,12 +3664,13 @@ var componentVNodeHooks = {
     }
   },
 
+  // 销毁vnode 
   destroy: function destroy(vnode) {
     var componentInstance = vnode.componentInstance;
     if (!componentInstance._isDestroyed) {
-      if (!vnode.data.keepAlive) {
+      if (!vnode.data.keepAlive) { // 在非keepalive的条件下 直接执行销毁
         componentInstance.$destroy();
-      } else {
+      } else { // 否则去执行keepalive的deactivete钩子
         deactivateChildComponent(componentInstance, true /* direct */ );
       }
     }
@@ -4866,6 +4868,7 @@ function activateChildComponent(vm, direct) {
   if (vm._inactive || vm._inactive === null) {
     vm._inactive = false;
     for (var i = 0; i < vm.$children.length; i++) {
+      // 找到子组件中需要调用active的地方 
       activateChildComponent(vm.$children[i]);
     }
     callHook(vm, 'activated');
@@ -7080,7 +7083,7 @@ function createPatchFunction(backend) {
     // does not trigger because the inner node's created hooks are not called
     // again. It's not ideal to involve module-specific logic in here but
     // there doesn't seem to be a better way to do it.
-    var innerNode = vnode;
+    var innerNode = vnode; // 以下内容处理keep-alive过渡的问题
     while (innerNode.componentInstance) {
       innerNode = innerNode.componentInstance._vnode;
       if (isDef(i = innerNode.data) && isDef(i = i.transition)) {
@@ -7096,6 +7099,7 @@ function createPatchFunction(backend) {
     insert(parentElm, vnode.elm, refElm);
   }
 
+  // 插入到dom中去 
   function insert(parent, elm, ref$$1) {
     if (isDef(parent)) {
       if (isDef(ref$$1)) {
