@@ -2,28 +2,44 @@
 
 <script>
 import MainTabBar from "components/content/MainTabBar";
+
+const A = {
+  name:'A',
+  template:'<div> click 1 </div>',
+}
+
+const B = {
+  name:'B',
+  template:'<p> click 2 </p>'
+}
+
+
 export default {
   name: "app",
   template:`
    <div>
-   <main-tab-bar v-model="zs.age" @click="show">click it</main-tab-bar> 
-    <button @click="zs.age+=1"> click </button> {{this.zs.age}}
+    <button @click="show"> sjsjsj</button>
+    <keep-alive>
+      <component :is="cpn" />
+    </keep-alive>
   </div>`,
   data: () => ({
     isShow: false,
+    cpn:'A'
     // i:'i am not on my-cpns props',
-    zs:{
-      name:"zs",
-      age:20
-    }
+    // zs:{
+    //   name:"zs",
+    //   age:20
+    // }
   }),
   components: {
-    MainTabBar
+    MainTabBar,
+    A,
+    B
   },
   methods: {
     show(a,e) {
-      console.log(e)
-      this.isShow = !this.isShow
+      this.cpn = this.cpn == 'A' ? 'B': 'A'
     }
   },
   watch: {

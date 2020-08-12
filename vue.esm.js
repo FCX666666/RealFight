@@ -3601,7 +3601,7 @@ var componentVNodeHooks = {
   // 然后调用 $mount 方法挂载子组件
   init: function init(vnode, hydrating) {
     if (
-      vnode.componentInstance &&
+      vnode.componentInstance && // keep-alive内部的组件在首次渲染的时候是没有组件实例的 需要按照常规初始化流程去生成vm实例
       !vnode.componentInstance._isDestroyed &&
       vnode.data.keepAlive
     ) { // 对于已经keepalive的组件 执行不一样的初始化过程  直接执行prepatch  跳过 创建实例的过程和mount的过程
@@ -3650,7 +3650,7 @@ var componentVNodeHooks = {
       componentInstance._isMounted = true;
       callHook(componentInstance, 'mounted');
     }
-    if (vnode.data.keepAlive) {
+    if (vnode.data.keepAlive) { //如果是keepalive  就执行activated钩子
       if (context._isMounted) {
         // vue-router#1212
         // During updates, a kept-alive component's child components may
@@ -4706,7 +4706,7 @@ function mountComponent(
       var endTag = "vue-perf-end:" + id;
 
       mark(startTag);
-      var vnode = vm._render(); // 拿到当前vm对应的vnode
+      var vnode = vm._render(); // 拿到当前vm对应的渲染vnode
       mark(endTag);
       measure(("vue " + name + " render"), startTag, endTag);
 
@@ -5987,7 +5987,7 @@ function initInternalComponent(vm, options) { // 组件vm 及组件特异性的o
 
   opts.propsData = vnodeComponentOptions.propsData; // 还是用那个例子来说，propsData就是根据:name="zs"生成的，
   opts._parentListeners = vnodeComponentOptions.listeners; // 而_parentListeners就是根据 @hel-lo="hello" 生成的，值是hello这个定义在父组件中的方法 是用户自定义的方法。
-  opts._renderChildren = vnodeComponentOptions.children;
+  opts._renderChildren = vnodeComponentOptions.children; // 这里的renderchildren会作为$slots传入到子组件上
   opts._componentTag = vnodeComponentOptions.tag;
 
   if (options.render) { // 如果传入了render 就赋值
