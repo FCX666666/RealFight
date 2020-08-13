@@ -6881,7 +6881,7 @@ function createPatchFunction(backend) {
   var nodeOps = backend.nodeOps;
 
   /**
-   * 
+   * ['create', 'activate', 'update', 'remove', 'destroy']
    */
   for (i = 0; i < hooks.length; ++i) {
     cbs[hooks[i]] = [];
@@ -6890,6 +6890,8 @@ function createPatchFunction(backend) {
       // 判断当前modules有没有定义当前hook modules对应dom-patch的每个模块 
       if (isDef(modules[j][hooks[i]])) { 
         // 如果有的话 就把当前模块的钩子添加到对应的时机中去 
+        // 这里的push会把不同modules不同类型的方法添加到一个数组中去，到对应的时机统一执行
+        // 就比如transition和klass 都有create 所以在执行create钩子的时候这俩钩子会依次执行
         cbs[hooks[i]].push(modules[j][hooks[i]]);
       }
     }
@@ -7010,7 +7012,7 @@ function createPatchFunction(backend) {
         // insertedVnodeQueue 这个数组会将所有层级的子组件的vnode都拿到!
         createChildren(vnode, children, insertedVnodeQueue); // 创建完当前vnode对应的所有dom元素
         if (isDef(data)) {
-          // 在insert之前 接着再调用 invokeCreateHooks 方法执行所有的 create 的钩子并把 vnode push 到 组件根vnode insertedVnodeQueue 中。
+          // 在insert之前 接着再调用 invokeCreateHooks 方法执行所有的 vnode-create 的钩子并把 vnode push 到 组件根vnode insertedVnodeQueue 中。
           invokeCreateHooks(vnode, insertedVnodeQueue); // 执行各种钩子 更新attr 之类的
         }
         // 最后调用 insert 方法把 DOM 插入到父节点中，因为是递归调用，
@@ -7030,6 +7032,7 @@ function createPatchFunction(backend) {
     }
   }
 
+  // 创建组件vm
   function createComponent(vnode, insertedVnodeQueue, parentElm, refElm) {
     var i = vnode.data; // 组件类型的vnode 才会有vnodedata 接着去初始化组件
     if (isDef(i)) {
@@ -7064,7 +7067,7 @@ function createPatchFunction(backend) {
       insertedVnodeQueue.push.apply(insertedVnodeQueue, vnode.data.pendingInsert);
       vnode.data.pendingInsert = null;
     }
-    vnode.elm = vnode.componentInstance.$el;
+    vnode.elm = vnode.componentInstance.$el; // $el赋值给elm
     if (isPatchable(vnode)) {
       invokeCreateHooks(vnode, insertedVnodeQueue);
       setScope(vnode);
@@ -7149,12 +7152,12 @@ function createPatchFunction(backend) {
    */
   function invokeCreateHooks(vnode, insertedVnodeQueue) {
     for (var i$1 = 0; i$1 < cbs.create.length; ++i$1) {
-      cbs.create[i$1](emptyNode, vnode);
+      cbs.create[i$1](emptyNode, vnode); // 执行当前模块对应的钩子
     }
     i = vnode.data.hook; // Reuse variable
     if (isDef(i)) {
       if (isDef(i.create)) {
-        i.create(emptyNode, vnode);
+        i.create(emptyNode, vnode); // 执行当前vnode的钩子
       }
       if (isDef(i.insert)) {
         insertedVnodeQueue.push(vnode);
@@ -9834,7 +9837,7 @@ var modules = platformModules.concat(baseModules);
 // nodeOps 表示对 “平台 DOM” 的一些操作方法，modules 表示平台的一些模块，它们会在整个 patch 过程的不同阶段执行相应的钩子函数。
 var patch = createPatchFunction({
   nodeOps: nodeOps, // 节点的crud操作
-  modules: modules // klass ref style ... 
+  modules: modules // klass ref style transition ... 
 });
 
 /**
