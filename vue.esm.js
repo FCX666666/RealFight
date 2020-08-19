@@ -6901,9 +6901,10 @@ function createPatchFunction(backend) {
     return new VNode(nodeOps.tagName(elm).toLowerCase(), {}, [], undefined, elm)
   }
 
+  // 在listener都执行完毕之后 删除dom节点  用在transition中是在动画结束之后执行删除节点操作
   function createRmCb(childElm, listeners) {
     function remove$$1() {
-      if (--remove$$1.listeners === 0) {
+      if (--remove$$1.listeners === 0) { // 每次执行都先--
         removeNode(childElm);
       }
     }
@@ -7241,7 +7242,7 @@ function createPatchFunction(backend) {
   }
 
   /**
-   * 
+   * 删除dom元素并执行删除钩子
    * @param {*} vnode 
    * @param {*} rm 
    */
@@ -9299,7 +9300,7 @@ function removeClass(el, cls) {
 }
 
 /*  */
-
+// 获取transtion相关资源 添加到一个对象中并将该对象返回
 function resolveTransition(def$$1) {
   if (!def$$1) {
     return
@@ -9308,7 +9309,7 @@ function resolveTransition(def$$1) {
   if (typeof def$$1 === 'object') {
     var res = {};
     if (def$$1.css !== false) {
-      extend(res, autoCssTransition(def$$1.name || 'v'));
+      extend(res, autoCssTransition(def$$1.name || 'v')); // 如果没有name就是v
     }
     extend(res, def$$1);
     return res
@@ -9385,9 +9386,9 @@ function removeTransitionClass(el, cls) {
 }
 
 function whenTransitionEnds(
-  el,
-  expectedType,
-  cb
+  el, // elememnt
+  expectedType, // transtion或者animation
+  cb // 回调
 ) {
   var ref = getTransitionInfo(el, expectedType);
   var type = ref.type;
@@ -9397,24 +9398,24 @@ function whenTransitionEnds(
     return cb()
   }
   var event = type === TRANSITION ? transitionEndEvent : animationEndEvent;
-  var ended = 0;
-  var end = function () {
+  var ended = 0; // 每完成一个属性的过渡 就会++
+  var end = function () { // 删除事件并触发回调
     el.removeEventListener(event, onEnd);
     cb();
   };
   var onEnd = function (e) {
     if (e.target === el) {
-      if (++ended >= propCount) {
+      if (++ended >= propCount) { // 当所有属性都完成了过渡或者动画就去触发回调
         end();
       }
     }
   };
   setTimeout(function () {
     if (ended < propCount) {
-      end();
+      end(); // 在动画过渡时间之后立即判断是不是所有属性还没有过渡完成 如果是 直接执行结束 防止有部分属性永远不会过渡完成
     }
   }, timeout + 1);
-  el.addEventListener(event, onEnd);
+  el.addEventListener(event, onEnd); // 添加事件回调 
 }
 
 /**
@@ -9422,6 +9423,11 @@ function whenTransitionEnds(
  */
 var transformRE = /\b(transform|all)(,|$)/;
 
+/**
+ * 获取元素的过渡相关信息
+ * @param {*} el 
+ * @param {*} expectedType 类型
+ */
 function getTransitionInfo(el, expectedType) {
   var styles = window.getComputedStyle(el);
   // JSDOM may return undefined for transition properties
@@ -9432,9 +9438,9 @@ function getTransitionInfo(el, expectedType) {
   var animationDurations = (styles[animationProp + 'Duration'] || '').split(', ');
   var animationTimeout = getTimeout(animationDelays, animationDurations);
 
-  var type;
-  var timeout = 0;
-  var propCount = 0;
+  var type; // 动画类型
+  var timeout = 0; // 回调延迟
+  var propCount = 0; // 动画属性名
   /* istanbul ignore if */
   if (expectedType === TRANSITION) {
     if (transitionTimeout > 0) {
@@ -9449,7 +9455,7 @@ function getTransitionInfo(el, expectedType) {
       propCount = animationDurations.length;
     }
   } else {
-    timeout = Math.max(transitionTimeout, animationTimeout);
+    timeout = Math.max(transitionTimeout, animationTimeout); // 取最大时间
     type = timeout > 0 ?
       transitionTimeout > animationTimeout ?
       TRANSITION :
@@ -9463,7 +9469,7 @@ function getTransitionInfo(el, expectedType) {
   }
   var hasTransform =
     type === TRANSITION &&
-    transformRE.test(styles[transitionProp + 'Property']);
+    transformRE.test(styles[transitionProp + 'Property']); // 判断动画效果的属性是否包含transform
   return {
     type: type,
     timeout: timeout,
@@ -9478,7 +9484,7 @@ function getTimeout(delays, durations) {
     delays = delays.concat(delays);
   }
 
-  return Math.max.apply(null, durations.map(function (d, i) {
+  return Math.max.apply(null, durations.map(function (d, i) { // 获取最大时间
     return toMs(d) + toMs(delays[i])
   }))
 }
@@ -9493,25 +9499,29 @@ function toMs(s) {
 
 /*  */
 
+//在模块钩子 create activate 中会调用
 function enter(vnode, toggleDisplay) {
   var el = vnode.elm;
 
   // call leave callback now
   if (isDef(el._leaveCb)) {
-    el._leaveCb.cancelled = true;
+    el._leaveCb.cancelled = true; // 再来开过程中进行enter钩子就代表取消离开
     el._leaveCb();
   }
 
+  //获取过渡相关资源
   var data = resolveTransition(vnode.data.transition);
+
   if (isUndef(data)) {
     return
   }
 
   /* istanbul ignore if */
-  if (isDef(el._enterCb) || el.nodeType !== 1) {
+  if (isDef(el._enterCb) || el.nodeType !== 1) { // 对于已经在进行进入动画和非节点类型的节点不作处理
     return
   }
 
+  // 赋值
   var css = data.css;
   var type = data.type;
   var enterClass = data.enterClass;
@@ -9536,17 +9546,19 @@ function enter(vnode, toggleDisplay) {
   // <transition>'s parent for appear check.
   var context = activeInstance;
   var transitionNode = activeInstance.$vnode;
-  while (transitionNode && transitionNode.parent) {
+  while (transitionNode && transitionNode.parent) { // 判断当前transition是组件的根节点 也就是$vnode站位节点存在 就继续向上着寻找 直到当前节点不是组件根节点为止
     context = transitionNode.context;
     transitionNode = transitionNode.parent;
   }
 
+  // 判断当前是不是已经挂载过了或者作为根节点插入的  判断是不是初次渲染
   var isAppear = !context._isMounted || !vnode.isRootInsert;
 
-  if (isAppear && !appear && appear !== '') {
+  if (isAppear && !appear && appear !== '') { // 没传入appear且初次渲染的时候就直接return
     return
   }
 
+  // class类赋值
   var startClass = isAppear && appearClass ?
     appearClass :
     enterClass;
@@ -9570,6 +9582,7 @@ function enter(vnode, toggleDisplay) {
     (appearCancelled || enterCancelled) :
     enterCancelled;
 
+    // 提取duration属性绑定的的值
   var explicitEnterDuration = toNumber(
     isObject(duration) ?
     duration.enter :
@@ -9581,27 +9594,28 @@ function enter(vnode, toggleDisplay) {
   }
 
   var expectsCSS = css !== false && !isIE9;
-  var userWantsControl = getHookArgumentsLength(enterHook);
+  var userWantsControl = getHookArgumentsLength(enterHook); // 根据入参长度判断当前用户是不是需要手动出发过度下一阶段的方法
 
+  // 为当前元素添加进入的回调 且只执行一次
   var cb = el._enterCb = once(function () {
-    if (expectsCSS) {
+    if (expectsCSS) { // 判断当前是不是可使用css 如果是 尝试移除transition类
       removeTransitionClass(el, toClass);
       removeTransitionClass(el, activeClass);
     }
-    if (cb.cancelled) {
+    if (cb.cancelled) {// 被取消的情况下
       if (expectsCSS) {
         removeTransitionClass(el, startClass);
       }
-      enterCancelledHook && enterCancelledHook(el);
+      enterCancelledHook && enterCancelledHook(el); // 执行被取消钩子
     } else {
-      afterEnterHook && afterEnterHook(el);
+      afterEnterHook && afterEnterHook(el); // 没被取消就完成进入后钩子
     }
-    el._enterCb = null;
+    el._enterCb = null; // 置空
   });
 
   if (!vnode.data.show) {
     // remove pending leave element on enter by injecting an insert hook
-    mergeVNodeHook(vnode, 'insert', function () {
+    mergeVNodeHook(vnode, 'insert', function () { // 在insert时机下去回调当前函数  
       var parent = el.parentNode;
       var pendingNode = parent && parent._pending && parent._pending[vnode.key];
       if (pendingNode &&
@@ -9615,18 +9629,18 @@ function enter(vnode, toggleDisplay) {
   }
 
   // start enter transition
-  beforeEnterHook && beforeEnterHook(el);
+  beforeEnterHook && beforeEnterHook(el); // 直接执行进入前钩子
   if (expectsCSS) {
-    addTransitionClass(el, startClass);
-    addTransitionClass(el, activeClass);
-    nextFrame(function () {
+    addTransitionClass(el, startClass); // 添加开始态
+    addTransitionClass(el, activeClass);// 添加活跃态
+    nextFrame(function () { // 然后在下一个动画帧去移除开始态
       removeTransitionClass(el, startClass);
-      if (!cb.cancelled) {
-        addTransitionClass(el, toClass);
-        if (!userWantsControl) {
+      if (!cb.cancelled) { // 如果回调被取消了 就需要定时去出发回调方法
+        addTransitionClass(el, toClass); // 就添加toclass
+        if (!userWantsControl) { // 用户不想主动控制的情况下
           if (isValidDuration(explicitEnterDuration)) {
-            setTimeout(cb, explicitEnterDuration);
-          } else {
+            setTimeout(cb, explicitEnterDuration); // 一段时间后触发回调
+          } else { // 添加过渡结束之后执行回调
             whenTransitionEnds(el, type, cb);
           }
         }
@@ -9639,27 +9653,29 @@ function enter(vnode, toggleDisplay) {
     enterHook && enterHook(el, cb);
   }
 
-  if (!expectsCSS && !userWantsControl) {
+  if (!expectsCSS && !userWantsControl) { // 在用户禁止css的时候并且没有主动去结束动画及效果 就直接在这里执行回调
     cb();
   }
 }
 
+// 元素渐出动画效果
 function leave(vnode, rm) {
   var el = vnode.elm;
 
   // call enter callback now
-  if (isDef(el._enterCb)) {
+  if (isDef(el._enterCb)) { // 在渲染过程中进行leave就代表取消了enter过程
     el._enterCb.cancelled = true;
     el._enterCb();
   }
 
+  // 获取transition数据
   var data = resolveTransition(vnode.data.transition);
   if (isUndef(data) || el.nodeType !== 1) {
     return rm()
   }
 
   /* istanbul ignore if */
-  if (isDef(el._leaveCb)) {
+  if (isDef(el._leaveCb)) { // 为定义离开回调 直接return
     return
   }
 
@@ -9678,6 +9694,7 @@ function leave(vnode, rm) {
   var expectsCSS = css !== false && !isIE9;
   var userWantsControl = getHookArgumentsLength(leave);
 
+  // 获取离开时间
   var explicitLeaveDuration = toNumber(
     isObject(duration) ?
     duration.leave :
@@ -9696,22 +9713,22 @@ function leave(vnode, rm) {
       removeTransitionClass(el, leaveToClass);
       removeTransitionClass(el, leaveActiveClass);
     }
-    if (cb.cancelled) {
+    if (cb.cancelled) { // 在执行leave的过程中执行了enter
       if (expectsCSS) {
-        removeTransitionClass(el, leaveClass);
+        removeTransitionClass(el, leaveClass); // 删除离开样式
       }
-      leaveCancelled && leaveCancelled(el);
+      leaveCancelled && leaveCancelled(el); // 执行取消离开钩子
     } else {
-      rm();
-      afterLeave && afterLeave(el);
+      rm(); // 执行dom删除操作
+      afterLeave && afterLeave(el); // 执行动画结束后操作
     }
-    el._leaveCb = null;
+    el._leaveCb = null; // 置空
   });
 
-  if (delayLeave) {
+  if (delayLeave) { // 如果有延迟离开函数 就在延迟后执行离开动画（用户入口）
     delayLeave(performLeave);
   } else {
-    performLeave();
+    performLeave(); // 否则直接开始离开动画执行
   }
 
   function performLeave() {
@@ -9719,18 +9736,18 @@ function leave(vnode, rm) {
     if (cb.cancelled) {
       return
     }
-    // record leaving element
+    // record leaving element 记录竟在leave的vnode  往站位节点添加一个哈希表 标记当前正在过渡的vnode
     if (!vnode.data.show && el.parentNode) {
       (el.parentNode._pending || (el.parentNode._pending = {}))[(vnode.key)] = vnode;
     }
-    beforeLeave && beforeLeave(el);
-    if (expectsCSS) {
-      addTransitionClass(el, leaveClass);
-      addTransitionClass(el, leaveActiveClass);
+    beforeLeave && beforeLeave(el); // 执行beforeleave钩子
+    if (expectsCSS) { // 如果允许css
+      addTransitionClass(el, leaveClass); // 添加开始态
+      addTransitionClass(el, leaveActiveClass); // 添加过渡类
       nextFrame(function () {
-        removeTransitionClass(el, leaveClass);
+        removeTransitionClass(el, leaveClass); // 在下个动画帧删除开始态
         if (!cb.cancelled) {
-          addTransitionClass(el, leaveToClass);
+          addTransitionClass(el, leaveToClass);// 添加离开终态
           if (!userWantsControl) {
             if (isValidDuration(explicitLeaveDuration)) {
               setTimeout(cb, explicitLeaveDuration);
@@ -9741,8 +9758,8 @@ function leave(vnode, rm) {
         }
       });
     }
-    leave && leave(el, cb);
-    if (!expectsCSS && !userWantsControl) {
+    leave && leave(el, cb); // 如果传入了leave  调用leave
+    if (!expectsCSS && !userWantsControl) { 
       cb();
     }
   }
@@ -10244,6 +10261,10 @@ var Transition = {
       (String(child.key).indexOf(id) === 0 ? child.key : id + child.key) :
       child.key; // 如果有key  直接返回
 
+      // 重要步骤：在transition的render过程中实际上就是为其子vnode添加transition属性
+      // 这样一来子vnode在执行patch的过程中就能在对应的时机添加对应的class类
+      // 最终完成样式过渡 其添加的属性都是从transition的vm中提取出来的 
+      // 提取的内容就是我们为transitin添加的类名和一些组件事件
     var data = (child.data || (child.data = {})).transition = extractTransitionData(this);
     var oldRawChild = this._vnode; // 当前vm对应的渲染vnode
     var oldChild = getRealChild(oldRawChild);// 获取渲染vnode的真实子节点
@@ -10286,7 +10307,7 @@ var Transition = {
         };
         mergeVNodeHook(data, 'afterEnter', performLeave); // 进入之后开始渲染离开动画
         mergeVNodeHook(data, 'enterCancelled', performLeave); // 进入被中断也渲染离开动画
-        mergeVNodeHook(oldData, 'delayLeave', function (leave) { // 
+        mergeVNodeHook(oldData, 'delayLeave', function (leave) { // 旧钩子离开后添加delayedleave方法
           delayedLeave = leave;
         });
       }
@@ -10316,8 +10337,8 @@ var TransitionGroup = {
       var restoreActiveInstance = setActiveInstance(this$1);
       // force removing pass
       this$1.__patch__(
-        this$1._vnode,
-        this$1.kept,
+        this$1._vnode, // 旧vnode
+        this$1.kept, // 需要保留的vnode重新构建的一个vnode
         false, // hydrating
         true // removeOnly (!important, avoids unnecessary moves)
       );
@@ -10338,10 +10359,10 @@ var TransitionGroup = {
     for (var i = 0; i < rawChildren.length; i++) {
       var c = rawChildren[i];
       if (c.tag) {
-        if (c.key != null && String(c.key).indexOf('__vlist') !== 0) {
+        if (c.key != null && String(c.key).indexOf('__vlist') !== 0) { // transition-group的每个child都必须有key属性 并且不是v-for的子节点
           children.push(c);
           map[c.key] = c;
-          (c.data || (c.data = {})).transition = transitionData;
+          (c.data || (c.data = {})).transition = transitionData; // 为每一个子元素都添加过渡数据
         } else if (process.env.NODE_ENV !== 'production') {
           var opts = c.componentOptions;
           var name = opts ? (opts.Ctor.options.name || opts.tag || '') : c.tag;
@@ -10350,24 +10371,24 @@ var TransitionGroup = {
       }
     }
 
-    if (prevChildren) {
+    if (prevChildren) { // 上次设置过渡的子数组
       var kept = [];
       var removed = [];
       for (var i$1 = 0; i$1 < prevChildren.length; i$1++) {
         var c$1 = prevChildren[i$1];
         c$1.data.transition = transitionData;
         c$1.data.pos = c$1.elm.getBoundingClientRect();
-        if (map[c$1.key]) {
+        if (map[c$1.key]) { // 遍历 获得需要删除的和需要留下的key
           kept.push(c$1);
         } else {
           removed.push(c$1);
         }
       }
-      this.kept = h(tag, null, kept);
-      this.removed = removed;
+      this.kept = h(tag, null, kept); // 生成一个vnode
+      this.removed = removed; //保存需要删除的
     }
 
-    return h(tag, null, children)
+    return h(tag, null, children) // 返回vnode
   },
 
   updated: function updated() {
@@ -10379,9 +10400,10 @@ var TransitionGroup = {
 
     // we divide the work into three loops to avoid mixing DOM reads and writes
     // in each iteration - which helps prevent layout thrashing.
-    children.forEach(callPendingCbs);
-    children.forEach(recordPosition);
-    children.forEach(applyTranslation);
+    // 把所有需要的工作切分到三个循环中去 避免dom的混读混写 避免dom的抖动和变化
+    children.forEach(callPendingCbs); // 执行钩子
+    children.forEach(recordPosition); // 获取为止
+    children.forEach(applyTranslation); // 移动元素
 
     // force reflow to put everything in position
     // assign to this to avoid being removed in tree-shaking
@@ -10389,19 +10411,19 @@ var TransitionGroup = {
     this._reflow = document.body.offsetHeight;
 
     children.forEach(function (c) {
-      if (c.data.moved) {
+      if (c.data.moved) { // 如果当前child移动了
         var el = c.elm;
         var s = el.style;
-        addTransitionClass(el, moveClass);
+        addTransitionClass(el, moveClass); // 添加移动样式
         s.transform = s.WebkitTransform = s.transitionDuration = '';
-        el.addEventListener(transitionEndEvent, el._moveCb = function cb(e) {
+        el.addEventListener(transitionEndEvent, el._moveCb = function cb(e) { // 在过渡结束后执行回调
           if (e && e.target !== el) {
             return
           }
-          if (!e || /transform$/.test(e.propertyName)) {
-            el.removeEventListener(transitionEndEvent, cb);
+          if (!e || /transform$/.test(e.propertyName)) { // 判断是不是transform属性变化
+            el.removeEventListener(transitionEndEvent, cb); // 移除
             el._moveCb = null;
-            removeTransitionClass(el, moveClass);
+            removeTransitionClass(el, moveClass); //去除move样式
           }
         });
       }
@@ -10439,6 +10461,7 @@ var TransitionGroup = {
   }
 };
 
+// 执行等待执行的钩子
 function callPendingCbs(c) {
   /* istanbul ignore if */
   if (c.elm._moveCb) {
