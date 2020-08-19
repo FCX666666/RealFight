@@ -1210,12 +1210,12 @@ function defineReactive$$1(
       // 相应的,属性dep中也存储了用到的地方的wathcer
       // 依赖收集过程中是一个双向保存引用的过程
       if (Dep.target) {
-        dep.depend(); // 核心:收集依赖 将当前属性对应的dep添加到Dep.target
+        dep.depend(); // 核心:收集依赖 将当前属性对应的dep添加到Dep.target  这里的dep是为了响应当前val的变化 如果是对象 只有对象被删除 被替换的情况下才会出发watcher去更新视图
         if (childOb) { // 判断当前val本身是否为对象或数组类型 如果是的话就拥有自己的ob  就会拿到其__ob__ 完成深层的响应式
           // 拿到当前val对应的__ob__.dep传入到当前Dep.target的依赖数组中去 所有的dep 都将被添加到当前的渲染Watcher中去
           // 如此一来就完成了深层的依赖收集
           // 这里的dep会在 Vue.del Vue.set 和使用数据响应方法时使用
-          childOb.dep.depend();
+          childOb.dep.depend(); // 这里的dep是为了数组和对象准备的 为了在更新对象或者数组后update用的  主要针对为对象添加新的属性 通过数组原型方法操作数据
           if (Array.isArray(value)) { // 如果是数组 对数组元素进行依次依赖收集(如果数组元素仍是对象)
             dependArray(value);
           }
@@ -4606,7 +4606,7 @@ function lifecycleMixin(Vue) {
     // updated in a parent's updated hook.
   };
 
-  // 触发当前组件所有watcher去进行一次视图渲染 
+  // 触发当前组件的渲染watcher去进行一次视图渲染 
   Vue.prototype.$forceUpdate = function () {
     var vm = this;
     if (vm._watcher) {
