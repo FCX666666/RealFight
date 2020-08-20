@@ -10405,9 +10405,11 @@ var TransitionGroup = {
     children.forEach(recordPosition); // 获取为止
     children.forEach(applyTranslation); // 移动元素
 
-    // force reflow to put everything in position
+    // force reflow to put everything in position 
+    // 触发页面重绘 因为上一步让元素translate需要重绘
+    // 一个dom技巧 通过获取offsetheight触发页面重绘
     // assign to this to avoid being removed in tree-shaking
-    // $flow-disable-line
+    // $flow-disable-line 避免tree-shaking去删除掉没有使用的变量
     this._reflow = document.body.offsetHeight;
 
     children.forEach(function (c) {
@@ -10415,7 +10417,7 @@ var TransitionGroup = {
         var el = c.elm;
         var s = el.style;
         addTransitionClass(el, moveClass); // 添加移动样式
-        s.transform = s.WebkitTransform = s.transitionDuration = '';
+        s.transform = s.WebkitTransform = s.transitionDuration = ''; // 移除故意偏移的样式 也就是开始动画
         el.addEventListener(transitionEndEvent, el._moveCb = function cb(e) { // 在过渡结束后执行回调
           if (e && e.target !== el) {
             return
@@ -10485,9 +10487,9 @@ function applyTranslation(c) {
   var dy = oldPos.top - newPos.top;
   if (dx || dy) {
     c.data.moved = true;
-    var s = c.elm.style;
+    var s = c.elm.style; // 先让当前dom回到上次的位置 然后移除这个偏移量 就会回到他应该在的位置 也就有了动画效果
     s.transform = s.WebkitTransform = "translate(" + dx + "px," + dy + "px)";
-    s.transitionDuration = '0s';
+    s.transitionDuration = '0s'; // 瞬间回到上次的位置
   }
 }
 
