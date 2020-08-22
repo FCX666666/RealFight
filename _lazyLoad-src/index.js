@@ -11,8 +11,8 @@ export default {
   * @param  {object} options  lazyload options
   */
   install (Vue, options = {}) {
-    const LazyClass = Lazy(Vue)
-    const lazy = new LazyClass(options)
+    const LazyClass = Lazy(Vue) // 传入Vue构造器去构造lazyclass
+    const lazy = new LazyClass(options) // 根据用户options创建vue-lazyload
     const lazyContainer = new LazyContainer({ lazy })
 
     const isVue2 = Vue.version.split('.')[0] === '2'
@@ -29,17 +29,17 @@ export default {
 
     if (isVue2) {
       Vue.directive('lazy', {
-        bind: lazy.add.bind(lazy),
-        update: lazy.update.bind(lazy),
-        componentUpdated: lazy.lazyLoadHandler.bind(lazy),
-        unbind: lazy.remove.bind(lazy)
+        bind: lazy.add.bind(lazy), // 初次绑定 没有旧vnode
+        update: lazy.update.bind(lazy), // 更新 有旧vnode
+        componentUpdated: lazy.lazyLoadHandler.bind(lazy), // vnode patch 完毕之后执行 
+        unbind: lazy.remove.bind(lazy) // 新vnode为空
       })
       Vue.directive('lazy-container', {
         bind: lazyContainer.bind.bind(lazyContainer),
         componentUpdated: lazyContainer.update.bind(lazyContainer),
         unbind: lazyContainer.unbind.bind(lazyContainer)
       })
-    } else {
+    } else { // vue 1.x
       Vue.directive('lazy', {
         bind: lazy.lazyLoadHandler.bind(lazy),
         update (newValue, oldValue) {

@@ -3,7 +3,7 @@ import assign from 'assign-deep'
 const inBrowser = typeof window !== 'undefined'
 export const hasIntersectionObserver = checkIntersectionObserver()
 
-function checkIntersectionObserver () {
+function checkIntersectionObserver () { // 检查当前浏览器有没有提供intersectionobserver  这个属性在用户设置了{observer:true}时候会进行检测 否则进行
   if (inBrowser &&
     'IntersectionObserver' in window &&
     'IntersectionObserverEntry' in window &&
@@ -14,7 +14,7 @@ function checkIntersectionObserver () {
       Object.defineProperty(window.IntersectionObserverEntry.prototype,
         'isIntersecting', {
           get: function () {
-            return this.intersectionRatio > 0
+            return this.intersectionRatio > 0 // 大于0就代表当前被监听元素已经进入了当前root的view内
           }
         })
     }
@@ -35,6 +35,10 @@ const CustomEvent = (function () {
   function CustomEvent (event, params) {
     params = params || { bubbles: false, cancelable: false, detail: undefined }
     var evt = document.createEvent('CustomEvent')
+     // loading: false,
+      // error: false,
+      // loaded: false,
+      // rendered: false  detail:listener
     evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail)
     return evt
   }
@@ -122,6 +126,7 @@ function getBestSelectionFromSrcset (el, scale) {
   return bestSelectedSrc
 }
 
+//满足方法就赋值当前item
 function find (arr, fn) {
   let item
   for (let i = 0, len = arr.length; i < len; i++) {
@@ -156,6 +161,7 @@ function supportWebp () {
   return support
 }
 
+//节流
 function throttle (action, delay) {
   let timeout = null
   let lastRun = 0
@@ -179,11 +185,12 @@ function throttle (action, delay) {
   }
 }
 
+// 测试当前浏览器是不是支持事件的passive属性
 function testSupportsPassive () {
   if (!inBrowser) return
   let support = false
   try {
-    let opts = Object.defineProperty({}, 'passive', {
+    let opts = Object.defineProperty({}, 'passive', {  // 浏览器内部会调用passive属性
       get: function () {
         support = true
       }
@@ -195,7 +202,7 @@ function testSupportsPassive () {
 
 const supportsPassive = testSupportsPassive()
 
-const _ = {
+const _ = { // 操作dom元素 添加事件或者移除事件
   on (el, type, func, capture = false) {
     if (supportsPassive) {
       el.addEventListener(type, func, {
@@ -211,6 +218,8 @@ const _ = {
   }
 }
 
+
+// 去加载图片
 const loadImageAsync = (item, resolve, reject) => {
   let image = new Image()
   if (!item || !item.src) {
@@ -221,7 +230,7 @@ const loadImageAsync = (item, resolve, reject) => {
   image.src = item.src
 
   image.onload = function () {
-    resolve({
+    resolve({ // 图片加载完毕之后去获取一些数据并返回
       naturalHeight: image.naturalHeight,
       naturalWidth: image.naturalWidth,
       src: image.src
@@ -233,16 +242,19 @@ const loadImageAsync = (item, resolve, reject) => {
   }
 }
 
+// 获取计算后的style属性
 const style = (el, prop) => {
-  return typeof getComputedStyle !== 'undefined'
-    ? getComputedStyle(el, null).getPropertyValue(prop)
-    : el.style[prop]
+  return typeof getComputedStyle !== 'undefined' // 判断浏览器环境支不支持computedStyle方法 IE9及以上
+    ? getComputedStyle(el, null).getPropertyValue(prop) // 获取计算后的属性名
+    : el.style[prop] // 如果没有直接通过style属性去取值
 }
 
+// 获取横向纵向和缩写的属性对应的值
 const overflow = (el) => {
   return style(el, 'overflow') + style(el, 'overflow-y') + style(el, 'overflow-x')
 }
 
+// 根据元素去获取其滚动的参照元素 
 const scrollParent = (el) => {
   if (!inBrowser) return
   if (!(el instanceof HTMLElement)) {
@@ -252,19 +264,19 @@ const scrollParent = (el) => {
   let parent = el
 
   while (parent) {
-    if (parent === document.body || parent === document.documentElement) {
+    if (parent === document.body || parent === document.documentElement) {// 如果当前是body或者html  直接返回当前元素
       break
     }
 
-    if (!parent.parentNode) {
+    if (!parent.parentNode) { // 已经找不到父级了直接返回当前元素
       break
     }
 
-    if (/(scroll|auto)/.test(overflow(parent))) {
+    if (/(scroll|auto)/.test(overflow(parent))) { // 正则匹配当前元素是不是设置了滚动  auto或者scroll 值得注意的是横向和纵向滚动都会返回当前dom元素
       return parent
     }
 
-    parent = parent.parentNode
+    parent = parent.parentNode // 不断向上级搜寻 找到第一个满足滚动条件的元素
   }
 
   return window
@@ -300,7 +312,7 @@ function ArrayFrom (arrLike) {
 
 function noop () {}
 
-class ImageCache {
+class ImageCache { // 图片缓存 默认100 实际传入200
   constructor ({ max }) {
     this.options = {
       max: max || 100
@@ -308,11 +320,11 @@ class ImageCache {
     this._caches = []
   }
 
-  has (key) {
+  has (key) { // 检查
     return this._caches.indexOf(key) > -1
   }
 
-  add (key) {
+  add (key) { // 添加
     if (this.has(key)) return
     this._caches.push(key)
     if (this._caches.length > this.options.max) {
@@ -320,7 +332,7 @@ class ImageCache {
     }
   }
 
-  free () {
+  free () { // 删除array[0]
     this._caches.shift()
   }
 }

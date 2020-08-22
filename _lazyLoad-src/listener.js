@@ -36,9 +36,9 @@ export default class ReactiveListener {
       loadEnd: 0
     }
 
-    this.filter()
-    this.initState()
-    this.render('loading', false)
+    this.filter() // 初始化filter
+    this.initState() // 初始化数据
+    this.render('loading', false) // 渲染loading的图片
   }
 
   /*
@@ -46,7 +46,7 @@ export default class ReactiveListener {
    * @return
    */
   initState () {
-    if ('dataset' in this.el) {
+    if ('dataset' in this.el) { // 图片路径添加到数据级上 遵循h5规范
       this.el.dataset.src = this.src
     } else {
       this.el.setAttribute('data-src', this.src)
@@ -81,7 +81,7 @@ export default class ReactiveListener {
     this.loading = loading
     this.error = error
     this.filter()
-    if (oldSrc !== this.src) {
+    if (oldSrc !== this.src) { // 不等就再次初始化数据
       this.attempt = 0
       this.initState()
     }
@@ -110,12 +110,13 @@ export default class ReactiveListener {
    */
   filter () {
     ObjectKeys(this.options.filter).map(key => {
-      this.options.filter[key](this, this.options)
+      this.options.filter[key](this, this.options) // 去执行过滤器 对用户的操作进行设置 可以去修改loading和dom元素的一些属性
     })
   }
 
   /*
    * render loading first
+   首先去渲染loading的图片
    * @params cb:Function
    * @return
    */
@@ -124,7 +125,7 @@ export default class ReactiveListener {
     loadImageAsync({
       src: this.loading
     }, data => {
-      this.render('loading', false)
+      this.render('loading', false) // 第二次执行渲染loading图片
       this.state.loading = false
       cb()
     }, () => {
@@ -137,6 +138,7 @@ export default class ReactiveListener {
 
   /*
    * try load image and  render it
+   * 尝试茄子啊图片并渲染到页面上
    * @return
    */
   load (onFinish = noop) {
@@ -145,23 +147,24 @@ export default class ReactiveListener {
       onFinish()
       return
     }
-    if (this.state.rendered && this.state.loaded) return
-    if (this._imageCache.has(this.src)) {
-      this.state.loaded = true
+    if (this.state.rendered && this.state.loaded) return // 如果已经渲染或者加载过 直接return
+    if (this._imageCache.has(this.src)) { // 查看listener缓存中有没有当前src对应的图片如果直接去渲染
+      this.state.loaded = true 
       this.render('loaded', true)
       this.state.rendered = true
       return onFinish()
     }
 
+    // 没有在缓存中找到就去渲染
     this.renderLoading(() => {
       this.attempt++
 
-      this.options.adapter['beforeLoad'] && this.options.adapter['beforeLoad'](this, this.options)
-      this.record('loadStart')
+      this.options.adapter['beforeLoad'] && this.options.adapter['beforeLoad'](this, this.options) // 执行钩子
+      this.record('loadStart') // 记录开始load
 
-      loadImageAsync({
+      loadImageAsync({ // 异步加载图片
         src: this.src
-      }, data => {
+      }, data => { // 获取图片的信息
         this.naturalHeight = data.naturalHeight
         this.naturalWidth = data.naturalWidth
         this.state.loaded = true
@@ -169,7 +172,7 @@ export default class ReactiveListener {
         this.record('loadEnd')
         this.render('loaded', false)
         this.state.rendered = true
-        this._imageCache.add(this.src)
+        this._imageCache.add(this.src) // 缓存添加当前src
         onFinish()
       }, err => {
         !this.options.silent && console.error(err)

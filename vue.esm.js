@@ -7514,7 +7514,7 @@ function createPatchFunction(backend) {
     } else if (oldVnode.text !== vnode.text) { // 如果是文本节点 查看当前节点的文本是不是变了 然后更新文本内容
       nodeOps.setTextContent(elm, vnode.text);
     }
-    if (isDef(data)) { // 执行postpatch钩子
+    if (isDef(data)) { // 在当前vnodepatch完毕之后执行postpatch钩子
       if (isDef(i = data.hook) && isDef(i = i.postpatch)) {
         i(oldVnode, vnode);
       }
@@ -7842,7 +7842,7 @@ function _update(oldVnode, vnode) {
     }
   }
 
-  if (dirsWithInsert.length) {
+  if (dirsWithInsert.length) { // 如果又插入的新指令 就在vnode insert之后执行指令insert钩子
     var callInsert = function () {
       for (var i = 0; i < dirsWithInsert.length; i++) {
         callHook$1(dirsWithInsert[i], 'inserted', vnode, oldVnode);
