@@ -118,7 +118,7 @@ Vue.component('my-cpn', function (resolve, reject) {
 })
 
 new Vue({
-  render: h => h(App),
+  render: h => h(App,{},'插槽内容'),
   // router,
   // store
 }).$mount('#app')

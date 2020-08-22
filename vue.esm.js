@@ -4911,7 +4911,7 @@ function callHook(vm, hook) {
     }
   }
   if (vm._hasHookEvent) {
-    // 这里执行hook钩子  当然我们也可以通过emit(hook:updated)的方式去执行钩子
+    // 这里执行hook钩子  可以通过emit(hook:updated)的方式去执行钩子
     vm.$emit('hook:' + hook);
   }
   popTarget();

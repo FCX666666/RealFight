@@ -2,10 +2,24 @@
 
 <script>
 import MainTabBar from "components/content/MainTabBar";
-
+import Vue from 'vue'
 const A = {
   name:'A',
   template:'<div> click 1 </div>',
+  mixins:[{
+    data(){
+      return {
+        name:'zhangsan'
+      }
+    }
+  },{
+    data(){
+      return {
+        age:10,
+        name:'lisi'
+      }
+    }
+  }]
 }
 
 const B = {
@@ -18,8 +32,10 @@ export default {
   name: "app",
   template:`
    <div>
+   <slot></slot>
     <button @click="show"> sjsjsj</button>
     <keep-alive>
+      <div>1</div>
       <component :is="cpn" />
     </keep-alive>
   </div>`,
@@ -51,6 +67,9 @@ export default {
     name(){
       return this.isShow
     }
+  },
+  mounted(){
+    console.log(this)
   }
 };
 </script>
