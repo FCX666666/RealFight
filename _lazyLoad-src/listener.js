@@ -127,7 +127,7 @@ export default class ReactiveListener {
     }, data => {
       this.render('loading', false) // 第二次执行渲染loading图片
       this.state.loading = false
-      cb()
+      cb() // 这里会执行loaded图片`
     }, () => {
       // handler `loading image` load failed
       cb()
