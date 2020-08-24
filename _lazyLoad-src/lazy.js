@@ -360,7 +360,7 @@ export default function (Vue) {
       const freeList = [] // 需要销毁的listenr列表
       this.ListenerQueue.forEach((listener, index) => {
         if (!listener.el || !listener.el.parentNode) {
-          freeList.push(listener) // 当前姐弟啊或者父级节点已经没有了
+          freeList.push(listener) // 当前节点啊或者父级节点已经没有了
         }
         const catIn = listener.checkInView() // 检查是不是需要加载
         if (!catIn) return
@@ -429,7 +429,7 @@ export default function (Vue) {
 
       if (bindType) { // v-lazy:background-image="imgUrl"  在这里就会为设置背景图片 
         el.style[bindType] = 'url("' + src + '")' // el.style['background-image'] = url('src...')
-      } else if (el.getAttribute('src') !== src) {
+      } else if (el.getAttribute('src') !== src) { // 检查当前是不是已经赋值过了
         el.setAttribute('src', src) // 没传就默认设置src
       }
 
