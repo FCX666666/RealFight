@@ -72,8 +72,8 @@ export class History {
     const route = this.router.match(location, this.current)
     this.confirmTransition(
       route,
-      () => {
-        this.updateRoute(route)
+      () => { // 执行完所有的导航钩子队列后会进入
+        this.updateRoute(route)  // 更新路由和视图
         onComplete && onComplete(route)
         this.ensureURL()
 
@@ -134,43 +134,54 @@ export class History {
     )
 
     // 根据不同的route对象去提取用户定义在options中的钩子函数并存储到queue数组中
+    // 就像是一个任务队列一个接一个去运行
     const queue: Array<?NavigationGuard> = [].concat(
       // in-component leave guards
-      extractLeaveGuards(deactivated), // 提取离开路由钩子
+      extractLeaveGuards(deactivated), // 提取leave-route路由钩子
       // global before hooks
-      this.router.beforeHooks,
+      this.router.beforeHooks, // 全局钩子
       // in-component update hooks
-      extractUpdateHooks(updated), // 根据更新提取更新钩子
+      extractUpdateHooks(updated), // 根据updated-route提取更新钩子
       // in-config enter guards
-      activated.map(m => m.beforeEnter),
+      activated.map(m => m.beforeEnter), // 获取actived-route的进入前钩子
       // async components
       resolveAsyncComponents(activated) // 获取异步组件
     )
 
     this.pending = route
+    // 任务队列中的每一个任务都将执行这个方法去完成任务
+    // 需要注意的是传入了next方法 如果不执行这个方法就无法让任务队列继续执行
     const iterator = (hook: NavigationGuard, next) => {
-      if (this.pending !== route) {
+      if (this.pending !== route) { // 判断等待执行的route和当前route是不是同一个对象
         return abort()
       }
       try {
+        // 这里就执行到了我们定义在全局或者是每个组件内部的路由守卫
+        // to-要进入的route
+        // from-从哪个路由离开的
+        // next-执行下一个任务 这个匿名函数对runQueue传入的next进行了一次封装 这层封装是赋予了路由跳转配置 push或者replace
         hook(route, current, (to: any) => {
           if (to === false || isError(to)) {
+            // 如果用户使用了 ‘false’就直接维持当前的url
             // next(false) -> abort navigation, ensure current URL
             this.ensureURL(true)
             abort(to)
           } else if (
+            // 判断用户next({})传入的数据进行对应路径跳转
             typeof to === 'string' ||
             (typeof to === 'object' &&
               (typeof to.path === 'string' || typeof to.name === 'string'))
           ) {
             // next('/') or next({ path: '/' }) -> redirect
             abort()
+            // 判断路由跳转类型
             if (typeof to === 'object' && to.replace) {
               this.replace(to)
             } else {
               this.push(to)
             }
           } else {
+            // 直接调用了next进行下一个任务
             // confirm transition and pass on the value
             next(to)
           }
@@ -180,19 +191,28 @@ export class History {
       }
     }
 
-    runQueue(queue, iterator, () => {
+    // 执行任务队列中的每一个任务
+    // 在失活的组件里调用 beforeRouteLeave 守卫。
+    // 调用全局的 beforeEach 守卫。
+    // 在重用的组件里调用 beforeRouteUpdate 守卫 (2.2+)。
+    // 在路由配置里调用 beforeEnter。
+    // 解析异步路由组件。
+    runQueue(queue, iterator, () => { // 所有任务执行完会执行这个方法
       const postEnterCbs = []
       const isValid = () => this.current === route
       // wait until async components are resolved before
       // extracting in-component enter guards
+      // 提取进入钩子
       const enterGuards = extractEnterGuards(activated, postEnterCbs, isValid)
       const queue = enterGuards.concat(this.router.resolveHooks)
-      runQueue(queue, iterator, () => {
+      // 在被激活的组件里调用 beforeRouteEnter。
+      // 调用全局的 beforeResolve 守卫 (2.5+)。
+      runQueue(queue, iterator, () => { // 再次执行队列 完毕后执行这个方法
         if (this.pending !== route) {
           return abort()
         }
-        this.pending = null
-        onComplete(route)
+        this.pending = null // 当前路由确认
+        onComplete(route) // 执行完成回调
         if (this.router.app) {
           this.router.app.$nextTick(() => {
             postEnterCbs.forEach(cb => {
@@ -207,8 +227,8 @@ export class History {
   updateRoute (route: Route) {
     const prev = this.current
     this.current = route
-    this.cb && this.cb(route)
-    this.router.afterHooks.forEach(hook => {
+    this.cb && this.cb(route) // 更新视图
+    this.router.afterHooks.forEach(hook => { // 执行全局after钩子
       hook && hook(route, prev)
     })
   }
@@ -264,14 +284,16 @@ function extractGuards (
   bind: Function,
   reverse?: boolean
 ): Array<?Function> {
+  // 这里会生成一个2层深度的数组 所以需要拍平一次
   const guards = flatMapComponents(records, (def, instance, match, key) => {
-    const guard = extractGuard(def, name)
-    if (guard) {
+    const guard = extractGuard(def, name) // 从options中提取钩子
+    if (guard) { // 进行运行时作用域绑定
       return Array.isArray(guard)
         ? guard.map(guard => bind(guard, instance, match, key))
         : bind(guard, instance, match, key)
     }
   })
+  // 在一些情况需要保证顺序并再次拍平 最后得到1个一位数组
   return flatten(reverse ? guards.reverse() : guards)
 }
 
@@ -279,13 +301,14 @@ function extractGuard (
   def: Object | Function,
   key: string
 ): NavigationGuard | Array<NavigationGuard> {
-  if (typeof def !== 'function') {
+  if (typeof def !== 'function') { // 对于不是构造器的options执行一次构造 对于异步工厂函数会直接跳过
     // extend now so that global mixins are applied.
     def = _Vue.extend(def)
   }
   return def.options[key]
 }
 
+// 根据key进行钩子函数的提取
 function extractLeaveGuards (deactivated: Array<RouteRecord>): Array<?Function> {
   return extractGuards(deactivated, 'beforeRouteLeave', bindGuard, true)
 }
@@ -294,7 +317,7 @@ function extractUpdateHooks (updated: Array<RouteRecord>): Array<?Function> {
   return extractGuards(updated, 'beforeRouteUpdate', bindGuard)
 }
 
-// 接受一个首位 绑定作用域到当前路由对应的vm实例
+// 接受一个守卫 返回一个函数 函数内部执行守卫方法 绑定作用域到当前路由对应的vm实例
 function bindGuard (guard: NavigationGuard, instance: ?_Vue): ?NavigationGuard {
   if (instance) {
     return function boundRouteGuard () {
@@ -311,6 +334,7 @@ function extractEnterGuards (
   return extractGuards(
     activated,
     'beforeRouteEnter',
+    // 在进入路由之前是没有instance的 所以第二个参数直接 _
     (guard, _, match, key) => {
       return bindEnterGuard(guard, match, key, cbs, isValid)
     }
@@ -324,6 +348,7 @@ function bindEnterGuard (
   cbs: Array<Function>,
   isValid: () => boolean
 ): NavigationGuard {
+  // 运行时的守卫 内部调用next 不需要用户去执行next
   return function routeEnterGuard (to, from, next) {
     return guard(to, from, cb => {
       if (typeof cb === 'function') {

@@ -17,8 +17,8 @@ export class HashHistory extends History {
     ensureSlash()
   }
 
-  // this is delayed until the app mounts
-  // to avoid the hashchange listener being fired too early
+  // this is delayed until the app mounts 在vm更新过之后进行触发 主要是添加事件监听器
+  // to avoid the hashchange listener being fired too early 为了是避免hash监听器触发过早
   setupListeners () {
     const router = this.router
     const expectScroll = router.options.scrollBehavior
