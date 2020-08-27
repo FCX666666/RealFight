@@ -24,7 +24,7 @@ export class History {
   readyErrorCbs: Array<Function>
   errorCbs: Array<Function>
 
-  // implemented by sub-classes
+  // implemented by sub-classes 被子类实现
   +go: (n: number) => void
   +push: (loc: RawLocation) => void
   +replace: (loc: RawLocation) => void
@@ -33,9 +33,9 @@ export class History {
 
   constructor (router: Router, base: ?string) {
     this.router = router
-    this.base = normalizeBase(base)
+    this.base = normalizeBase(base) // 处理base标签或者是用户传入的options.base
     // start with a route object that stands for "nowhere"
-    this.current = START
+    this.current = START // 初始化一个初始状态的route对象
     this.pending = null
     this.ready = false
     this.readyCbs = []
@@ -62,11 +62,13 @@ export class History {
     this.errorCbs.push(errorCb)
   }
 
+  //每个路由模式都会使用这个方法
   transitionTo (
-    location: RawLocation,
-    onComplete?: Function,
-    onAbort?: Function
+    location: RawLocation, // 对于hash模式是#后边的内容 uri解码之后的
+    onComplete?: Function, // 完成
+    onAbort?: Function // 终止
   ) {
+     // 初始化的时候this.current是undefined
     const route = this.router.match(location, this.current)
     this.confirmTransition(
       route,
@@ -98,7 +100,7 @@ export class History {
   }
 
   confirmTransition (route: Route, onComplete: Function, onAbort?: Function) {
-    const current = this.current
+    const current = this.current // 路径切换之后更新current
     const abort = err => {
       // after merging https://github.com/vuejs/vue-router/pull/2771 we
       // When the user navigates through history through back/forward buttons
@@ -117,30 +119,32 @@ export class History {
       onAbort && onAbort(err)
     }
     if (
-      isSameRoute(route, current) &&
+      isSameRoute(route, current) && // 判断是不是相同的路径
       // in the case the route map has been dynamically appended to
-      route.matched.length === current.matched.length
+      route.matched.length === current.matched.length // 比对父级record组成数组的长度
     ) {
       this.ensureURL()
       return abort(new NavigationDuplicated(route))
     }
 
+    // 获取需要操作的钩子
     const { updated, deactivated, activated } = resolveQueue(
       this.current.matched,
       route.matched
     )
 
+    // 根据不同的route对象去提取用户定义在options中的钩子函数并存储到queue数组中
     const queue: Array<?NavigationGuard> = [].concat(
       // in-component leave guards
-      extractLeaveGuards(deactivated),
+      extractLeaveGuards(deactivated), // 提取离开路由钩子
       // global before hooks
       this.router.beforeHooks,
       // in-component update hooks
-      extractUpdateHooks(updated),
+      extractUpdateHooks(updated), // 根据更新提取更新钩子
       // in-config enter guards
       activated.map(m => m.beforeEnter),
       // async components
-      resolveAsyncComponents(activated)
+      resolveAsyncComponents(activated) // 获取异步组件
     )
 
     this.pending = route
@@ -211,12 +215,13 @@ export class History {
 }
 
 function normalizeBase (base: ?string): string {
-  if (!base) {
-    if (inBrowser) {
-      // respect <base> tag
+  if (!base) { // 如果没有传入base
+    if (inBrowser) {  // 浏览器
+      // respect <base> tag 指定用于一个文档中包含的所有相对 URL 的根 URL。一份中只能有一个 <base> 元素。
+      // 先检查全局的base标签然后添加到前base前边
       const baseEl = document.querySelector('base')
       base = (baseEl && baseEl.getAttribute('href')) || '/'
-      // strip full URL origin
+      // strip full URL origin 把https://yuming 删除
       base = base.replace(/^https?:\/\/[^\/]+/, '')
     } else {
       base = '/'
@@ -226,7 +231,7 @@ function normalizeBase (base: ?string): string {
   if (base.charAt(0) !== '/') {
     base = '/' + base
   }
-  // remove trailing slash
+  // remove trailing slash 添加开头的/ 并去掉尾巴上的/
   return base.replace(/\/$/, '')
 }
 
@@ -239,19 +244,20 @@ function resolveQueue (
   deactivated: Array<RouteRecord>
 } {
   let i
-  const max = Math.max(current.length, next.length)
-  for (i = 0; i < max; i++) {
+  const max = Math.max(current.length, next.length) // 拿到当前父级record中长的那个
+  for (i = 0; i < max; i++) { // 循环 当找到新旧不同的record
     if (current[i] !== next[i]) {
       break
     }
   }
   return {
-    updated: next.slice(0, i),
-    activated: next.slice(i),
+    updated: next.slice(0, i), // 相同的链条代表当前的record是需要执行路由更新的
+    activated: next.slice(i), // 剩余部分是新旧路由不同的部分 对于上次的路由 要执行离开路由钩子 对于本次即将进入的路由要执行进入前钩子
     deactivated: current.slice(i)
   }
 }
 
+// 提取对应状态的钩子
 function extractGuards (
   records: Array<RouteRecord>,
   name: string,
@@ -288,6 +294,7 @@ function extractUpdateHooks (updated: Array<RouteRecord>): Array<?Function> {
   return extractGuards(updated, 'beforeRouteUpdate', bindGuard)
 }
 
+// 接受一个首位 绑定作用域到当前路由对应的vm实例
 function bindGuard (guard: NavigationGuard, instance: ?_Vue): ?NavigationGuard {
   if (instance) {
     return function boundRouteGuard () {

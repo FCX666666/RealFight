@@ -39,24 +39,39 @@ export default class VueRouter {
     this.beforeHooks = []
     this.resolveHooks = []
     this.afterHooks = []
+    // 传入用户设置的routes来创建matcher 
+    // 这也是vue-router中关键的一个概念 matcher
+    /*
+      const router = new VueRouter({
+        routes: [
+          // 动态路径参数 以冒号开头
+          { path: '/user/:id', component: User }
+        ]
+      })
+    */
     this.matcher = createMatcher(options.routes || [], this)
 
     let mode = options.mode || 'hash'
+    // 设置回退方案 history模式再不支持pushstate和用户未设置false的时候为true
     this.fallback = mode === 'history' && !supportsPushState && options.fallback !== false
     if (this.fallback) {
       mode = 'hash'
     }
+    // 如果不在浏览器环境就设置抽象路由
     if (!inBrowser) {
       mode = 'abstract'
     }
     this.mode = mode
 
+    //根据对应的模式创建对应的history对象
+    // base:应用的基路径。例如，如果整个单页应用服务在 /app/ 下，然后 base 就应该设为 "/app/"
     switch (mode) {
       case 'history':
         this.history = new HTML5History(this, options.base)
         break
       case 'hash':
-        this.history = new HashHistory(this, options.base, this.fallback)
+        // 只有hash模式会传入fallback 代表当前是不是回退到hash模式下的
+        this.history = new HashHistory(this, options.base, this.fallback) 
         break
       case 'abstract':
         this.history = new AbstractHistory(this, options.base)
@@ -87,17 +102,17 @@ export default class VueRouter {
       `before creating root instance.`
     )
 
-    this.apps.push(app)
+    this.apps.push(app) // 把当前vm实例添加到app数组中去
 
     // set up app destroyed handler
     // https://github.com/vuejs/vue-router/issues/2639
     app.$once('hook:destroyed', () => {
       // clean out app from this.apps array once destroyed
       const index = this.apps.indexOf(app)
-      if (index > -1) this.apps.splice(index, 1)
+      if (index > -1) this.apps.splice(index, 1) // 数组中删除
       // ensure we still have a main app or null if no apps
       // we do not release the router so it can be reused
-      if (this.app === app) this.app = this.apps[0] || null
+      if (this.app === app) this.app = this.apps[0] || null // 当前app挪到首位或者null
     })
 
     // main app previously initialized
@@ -110,16 +125,16 @@ export default class VueRouter {
 
     const history = this.history
 
-    if (history instanceof HTML5History) {
+    if (history instanceof HTML5History) { // 判断当前模式
       history.transitionTo(history.getCurrentLocation())
     } else if (history instanceof HashHistory) {
       const setupHashListener = () => {
         history.setupListeners()
       }
       history.transitionTo(
-        history.getCurrentLocation(),
-        setupHashListener,
-        setupHashListener
+        history.getCurrentLocation(), // #后边的
+        setupHashListener, // 完成
+        setupHashListener // 中断
       )
     }
 

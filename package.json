@@ -11,7 +11,7 @@
     "axios": "^0.19.2",
     "better-scroll": "^1.15.2",
     "core-js": "^3.4.4",
-    "element-ui": "^2.13.1",
+    "element-ui": "^2.13.2",
     "esm": "^3.2.25",
     "fastclick": "^1.0.6",
     "lodash": "^4.17.15",

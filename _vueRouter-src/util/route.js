@@ -11,6 +11,7 @@ export function createRoute (
   redirectedFrom?: ?Location,
   router?: VueRouter
 ): Route {
+  // 创建route 获取query字符串化方法
   const stringifyQuery = router && router.options.stringifyQuery
 
   let query: any = location.query || {}
@@ -28,23 +29,24 @@ export function createRoute (
     fullPath: getFullPath(location, stringifyQuery),
     matched: record ? formatMatch(record) : []
   }
-  if (redirectedFrom) {
+  if (redirectedFrom) { // 查看重定向源 并获取全路径
     route.redirectedFrom = getFullPath(redirectedFrom, stringifyQuery)
   }
+  // 返回冻结之后的route对象
   return Object.freeze(route)
 }
 
 function clone (value) {
   if (Array.isArray(value)) {
-    return value.map(clone)
-  } else if (value && typeof value === 'object') {
+    return value.map(clone) // 递归复制一个数组
+  } else if (value && typeof value === 'object') { // 对象类型
     const res = {}
     for (const key in value) {
-      res[key] = clone(value[key])
+      res[key] = clone(value[key]) // 递归
     }
     return res
   } else {
-    return value
+    return value // primitive 直接返回当前值
   }
 }
 
@@ -53,6 +55,7 @@ export const START = createRoute(null, {
   path: '/'
 })
 
+// 父子从前到后添加路由记录到一个数组中去 是为了拿到父路由 然后去触发父组件中的路由守卫
 function formatMatch (record: ?RouteRecord): Array<RouteRecord> {
   const res = []
   while (record) {
@@ -62,10 +65,12 @@ function formatMatch (record: ?RouteRecord): Array<RouteRecord> {
   return res
 }
 
+// 获得完整路径
 function getFullPath (
   { path, query = {}, hash = '' },
   _stringifyQuery
 ): string {
+  // 查看用户传入的query字符串化方法
   const stringify = _stringifyQuery || stringifyQuery
   return (path || '/') + stringify(query) + hash
 }

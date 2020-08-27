@@ -9,7 +9,7 @@ import { pushState, replaceState, supportsPushState } from '../util/push-state'
 
 export class HashHistory extends History {
   constructor (router: Router, base: ?string, fallback: boolean) {
-    super(router, base)
+    super(router, base) // 调用父级的构造器添加属性
     // check history fallback deeplinking
     if (fallback && checkFallback(this.base)) {
       return
@@ -89,14 +89,17 @@ export class HashHistory extends History {
   }
 }
 
+//检查回退策略
 function checkFallback (base) {
   const location = getLocation(base)
-  if (!/^\/#/.test(location)) {
+  if (!/^\/#/.test(location)) { // 判断location是不是以 /# 开头
+    // 如果不是就直接通过location.replace修改url
     window.location.replace(cleanPath(base + '/#' + location))
     return true
   }
 }
 
+// 查找斜线 在hash添加/
 function ensureSlash (): boolean {
   const path = getHash()
   if (path.charAt(0) === '/') {
@@ -106,6 +109,7 @@ function ensureSlash (): boolean {
   return false
 }
 
+// 截取hash后边的地址  uri解码之后的
 export function getHash (): string {
   // We can't use window.location.hash here because it's not
   // consistent across browsers - Firefox will pre-decode it!
@@ -114,7 +118,7 @@ export function getHash (): string {
   // empty path
   if (index < 0) return ''
 
-  href = href.slice(index + 1)
+  href = href.slice(index + 1) // 截取#后边的
   // decode the hash but not the search or hash
   // as search(query) is already decoded
   // https://github.com/vuejs/vue-router/issues/2708

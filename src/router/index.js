@@ -1,21 +1,14 @@
 import router from 'vue-router';
-import vue from 'vue'
-
-const routerPush = router.prototype.push
-router.prototype.push = function push(location) {
-  return routerPush.call(this, location).catch(error=> error)
-}
-
-vue.use(router);
-
+import Vue from 'vue'
+Vue.use(router)
 // const Home = () => import('views/home/Home')
 const Category = () => import('views/category/category')
 const Cart = () => import('views/cart/cart')
 const Profile = () => import('views/profile/profile')
 
 const routes = [{
-  path: '*',
-  redirect: '/home',
+  path: '/test',
+  redirect: '/profile/200/zhangsan',
 }, {
   path: '/category',
   component: Category
@@ -23,11 +16,10 @@ const routes = [{
   path: '/cart',
   component: Cart
 }, {
-  path: '/profile',
+  path: '/profile/:id/:name',
   component: Profile
 }];
 
 export default new router({
-  routes,
-  mode: 'history'
+  routes
 })

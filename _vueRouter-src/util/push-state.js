@@ -5,12 +5,13 @@ import { saveScrollPosition } from './scroll'
 import { genStateKey, setStateKey, getStateKey } from './state-key'
 import { extend } from './misc'
 
+// 检查当前浏览器环境是不是支持window.hsitory.pushState
 export const supportsPushState =
   inBrowser &&
   (function () {
     const ua = window.navigator.userAgent
 
-    if (
+    if ( // 特定版本不支持
       (ua.indexOf('Android 2.') !== -1 || ua.indexOf('Android 4.0') !== -1) &&
       ua.indexOf('Mobile Safari') !== -1 &&
       ua.indexOf('Chrome') === -1 &&
@@ -19,6 +20,7 @@ export const supportsPushState =
       return false
     }
 
+    // 直接通过全局变量支持
     return window.history && 'pushState' in window.history
   })()
 

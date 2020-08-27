@@ -12,14 +12,17 @@ export type Matcher = {
   match: (raw: RawLocation, current?: Route, redirectedFrom?: Location) => Route;
   addRoutes: (routes: Array<RouteConfig>) => void;
 };
-
+// routes: [
+//           // 动态路径参数 以冒号开头
+//           { path: '/user/:id', component: User }
+// ]
 export function createMatcher (
-  routes: Array<RouteConfig>,
-  router: VueRouter
+  routes: Array<RouteConfig>, // 数组对象
+  router: VueRouter // vue-router实例
 ): Matcher {
-  const { pathList, pathMap, nameMap } = createRouteMap(routes)
+  const { pathList, pathMap, nameMap } = createRouteMap(routes) // 根据传入的数组去创建一些哈希表维持关系
 
-  function addRoutes (routes) {
+  function addRoutes (routes) { // 动态添加routes 也是内部提供给外部的api
     createRouteMap(routes, pathList, pathMap, nameMap)
   }
 
@@ -28,14 +31,17 @@ export function createMatcher (
     currentRoute?: Route,
     redirectedFrom?: Location
   ): Route {
+    // 标准化location
     const location = normalizeLocation(raw, currentRoute, false, router)
     const { name } = location
 
     if (name) {
+      // 在初始化的map中寻找有没有当前name匹配的路由记录
       const record = nameMap[name]
       if (process.env.NODE_ENV !== 'production') {
         warn(record, `Route with name '${name}' does not exist`)
       }
+      // 没有就直接返回空记录
       if (!record) return _createRoute(null, location)
       const paramNames = record.regex.keys
         .filter(key => !key.optional)
@@ -150,18 +156,19 @@ export function createMatcher (
     return _createRoute(null, location)
   }
 
+  // 创建一个路由
   function _createRoute (
     record: ?RouteRecord,
     location: Location,
     redirectedFrom?: Location
   ): Route {
-    if (record && record.redirect) {
+    if (record && record.redirect) { // 创建重定向的路由
       return redirect(record, redirectedFrom || location)
     }
-    if (record && record.matchAs) {
+    if (record && record.matchAs) { // 创建别名的路由
       return alias(record, location, record.matchAs)
     }
-    return createRoute(record, location, redirectedFrom, router)
+    return createRoute(record, location, redirectedFrom, router) //创建常规
   }
 
   return {

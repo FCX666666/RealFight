@@ -62,6 +62,7 @@ function parseQuery (query: string): Dictionary<string> {
   return res
 }
 
+// 默认的query字符串生成方法
 export function stringifyQuery (obj: Dictionary<string>): string {
   const res = obj ? Object.keys(obj).map(key => {
     const val = obj[key]
@@ -70,11 +71,11 @@ export function stringifyQuery (obj: Dictionary<string>): string {
       return ''
     }
 
-    if (val === null) {
+    if (val === null) { // 只有key没有value 只编码key
       return encode(key)
     }
 
-    if (Array.isArray(val)) {
+    if (Array.isArray(val)) { // 如果是字符串 用&连接多个query
       const result = []
       val.forEach(val2 => {
         if (val2 === undefined) {

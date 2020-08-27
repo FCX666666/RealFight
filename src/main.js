@@ -105,7 +105,7 @@ import App from './App.vue'
 //   loading:require('@/assets/img/logo.png')//加載中
 // })
 
-Vue.component('my-cpn', function (resolve, reject) {
+Vue.component('my-cpn', function (resolve) {
   setTimeout(() => {
     resolve({
       name: 'MyCpn',
@@ -118,8 +118,8 @@ Vue.component('my-cpn', function (resolve, reject) {
 })
 
 new Vue({
-  render: h => h(App,{},'插槽内容'),
-  // router,
+  render: h => h(App),
+  router,
   // store
 }).$mount('#app')
 // this.$refs.x.$el可以获取组件对应渲染的元素节点  img标签 - @load监听图片加载完毕事件

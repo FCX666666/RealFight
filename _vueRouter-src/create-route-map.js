@@ -5,11 +5,11 @@ import { cleanPath } from './util/path'
 import { assert, warn } from './util/warn'
 
 export function createRouteMap (
-  routes: Array<RouteConfig>,
-  oldPathList?: Array<string>,
+  routes: Array<RouteConfig>, // { path: '/user/:id', component: User }
+  oldPathList?: Array<string>, // 以下三项为上次解析出来的结果
   oldPathMap?: Dictionary<RouteRecord>,
   oldNameMap?: Dictionary<RouteRecord>
-): {
+): { // 返回解析结果对象
   pathList: Array<string>,
   pathMap: Dictionary<RouteRecord>,
   nameMap: Dictionary<RouteRecord>
@@ -21,23 +21,23 @@ export function createRouteMap (
   // $flow-disable-line
   const nameMap: Dictionary<RouteRecord> = oldNameMap || Object.create(null)
 
-  routes.forEach(route => {
-    addRouteRecord(pathList, pathMap, nameMap, route)
+  routes.forEach(route => { // 所有的路由匹配记录都添加到三个引用中
+    addRouteRecord(pathList, pathMap, nameMap, route) // 添加一条路由匹配记录
   })
 
-  // ensure wildcard routes are always at the end
+  // ensure wildcard（通配符） routes are always at the end 确保通配符路由在最后
   for (let i = 0, l = pathList.length; i < l; i++) {
     if (pathList[i] === '*') {
       pathList.push(pathList.splice(i, 1)[0])
-      l--
-      i--
+      l-- // 解决循环次数-1
+      i-- // 然后回退上次循环到的地方 因为通配符已经挪到最后一个 不会影响原循环
     }
   }
 
   if (process.env.NODE_ENV === 'development') {
     // warn if routes do not include leading slashes
     const found = pathList
-    // check for missing leading slash
+    // check for missing leading slash 检查是否缺少正斜杠 也就是路由设置不规范
       .filter(path => path && path.charAt(0) !== '*' && path.charAt(0) !== '/')
 
     if (found.length > 0) {
@@ -53,6 +53,7 @@ export function createRouteMap (
   }
 }
 
+// 添加一条路由匹配记录
 function addRouteRecord (
   pathList: Array<string>,
   pathMap: Dictionary<RouteRecord>,
@@ -61,28 +62,29 @@ function addRouteRecord (
   parent?: RouteRecord,
   matchAs?: string
 ) {
-  const { path, name } = route
-  if (process.env.NODE_ENV !== 'production') {
+  const { path, name } = route // { path: '/user/:id', component: User,name:'user' } => /user/:id  User
+  if (process.env.NODE_ENV !== 'production') { // 提示path是必须的
     assert(path != null, `"path" is required in a route configuration.`)
     assert(
       typeof route.component !== 'string',
       `route config "component" for path: ${String(
         path || name
-      )} cannot be a ` + `string id. Use an actual component instead.`
+      )} cannot be a ` + `string id. Use an actual component instead.` // 提示name必须为组件而不是字符串
     )
   }
 
   const pathToRegexpOptions: PathToRegexpOptions =
-    route.pathToRegexpOptions || {}
-  const normalizedPath = normalizePath(path, parent, pathToRegexpOptions.strict)
+    route.pathToRegexpOptions || {} // pathToRegexpOptions 路径匹配设置
+  const normalizedPath = normalizePath(path, parent, pathToRegexpOptions.strict) // 标准化信息 返回一个标准化的path路径
 
-  if (typeof route.caseSensitive === 'boolean') {
+  if (typeof route.caseSensitive === 'boolean') { // 大小写是否敏感
     pathToRegexpOptions.sensitive = route.caseSensitive
   }
 
+  // 每个record是一个路由的描述
   const record: RouteRecord = {
     path: normalizedPath,
-    regex: compileRouteRegex(normalizedPath, pathToRegexpOptions),
+    regex: compileRouteRegex(normalizedPath, pathToRegexpOptions), //  通过编译正则的选项去编译标准化的路径到正则规则
     components: route.components || { default: route.component },
     instances: {},
     name,
@@ -105,9 +107,9 @@ function addRouteRecord (
     // not be rendered (GH Issue #629)
     if (process.env.NODE_ENV !== 'production') {
       if (
-        route.name &&
-        !route.redirect &&
-        route.children.some(child => /^\/?$/.test(child.path))
+        route.name && // 包含组件对象
+        !route.redirect && // 且不是重定向
+        route.children.some(child => /^\/?$/.test(child.path)) // 
       ) {
         warn(
           false,
@@ -121,24 +123,24 @@ function addRouteRecord (
         )
       }
     }
-    route.children.forEach(child => {
-      const childMatchAs = matchAs
+    route.children.forEach(child => { // 遍历 为子路由和别名路由创建添加路由记录
+      const childMatchAs = matchAs // 别名路由会存在matchAs 为别名路由创建匹配的path
         ? cleanPath(`${matchAs}/${child.path}`)
         : undefined
-      addRouteRecord(pathList, pathMap, nameMap, child, record, childMatchAs)
+      addRouteRecord(pathList, pathMap, nameMap, child, record, childMatchAs) // 深度遍历
     })
   }
 
-  if (!pathMap[record.path]) {
+  if (!pathMap[record.path]) { // 添加当前路径和路由记录
     pathList.push(record.path)
     pathMap[record.path] = record
   }
 
-  if (route.alias !== undefined) {
+  if (route.alias !== undefined) { // 如果设置了别名
     const aliases = Array.isArray(route.alias) ? route.alias : [route.alias]
     for (let i = 0; i < aliases.length; ++i) {
       const alias = aliases[i]
-      if (process.env.NODE_ENV !== 'production' && alias === path) {
+      if (process.env.NODE_ENV !== 'production' && alias === path) { // 看看是不是已经和path名称一致了
         warn(
           false,
           `Found an alias with the same value as the path: "${path}". You have to remove that alias. It will be ignored in development.`
@@ -147,11 +149,11 @@ function addRouteRecord (
         continue
       }
 
-      const aliasRoute = {
+      const aliasRoute = { 
         path: alias,
         children: route.children
       }
-      addRouteRecord(
+      addRouteRecord( // 添加别名路由记录
         pathList,
         pathMap,
         nameMap,
@@ -162,8 +164,8 @@ function addRouteRecord (
     }
   }
 
-  if (name) {
-    if (!nameMap[name]) {
+  if (name) { // 如果当前是命名路由
+    if (!nameMap[name]) { 
       nameMap[name] = record
     } else if (process.env.NODE_ENV !== 'production' && !matchAs) {
       warn(
@@ -175,6 +177,7 @@ function addRouteRecord (
   }
 }
 
+// 编译路由正则
 function compileRouteRegex (
   path: string,
   pathToRegexpOptions: PathToRegexpOptions
@@ -198,8 +201,8 @@ function normalizePath (
   parent?: RouteRecord,
   strict?: boolean
 ): string {
-  if (!strict) path = path.replace(/\/$/, '')
-  if (path[0] === '/') return path
-  if (parent == null) return path
-  return cleanPath(`${parent.path}/${path}`)
+  if (!strict) path = path.replace(/\/$/, '') // 不是严格模式就直接把最后的/去掉
+  if (path[0] === '/') return path // 判断是不是/开头的 代表绝对路径
+  if (parent == null) return path // 判断有没有父级路由
+  return cleanPath(`${parent.path}/${path}`) // 相对路径 拼接父级路由
 }

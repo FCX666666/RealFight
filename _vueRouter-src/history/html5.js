@@ -72,9 +72,11 @@ export class HTML5History extends History {
 }
 
 export function getLocation (base: string): string {
-  let path = decodeURI(window.location.pathname)
-  if (base && path.indexOf(base) === 0) {
+  // url解码 decodeURI() 函数能解码由encodeURI 创建或其它流程得到的统一资源标识符（URI）
+  let path = decodeURI(window.location.pathname) // 域名后边不包括search和hash
+  if (base && path.indexOf(base) === 0) { // 如果当前解析出来的path以当前base开头 就截取base后面的部分
     path = path.slice(base.length)
   }
-  return (path || '/') + window.location.search + window.location.hash
+  // 返回拼接后的路径 search 代表?后边的包括？ hash代表#后边的包括#
+  return (path || '/') + window.location.search + window.location.hash 
 }
