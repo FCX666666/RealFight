@@ -17,7 +17,7 @@ export class HashHistory extends History {
     ensureSlash()
   }
 
-  // this is delayed until the app mounts 在vm更新过之后进行触发 主要是添加事件监听器
+  // this is delayed until the app mounts 在vm挂载之后进行 主要是添加事件监听器 为的是下次hash变化时可以再次触发
   // to avoid the hashchange listener being fired too early 为了是避免hash监听器触发过早
   setupListeners () {
     const router = this.router
@@ -77,9 +77,10 @@ export class HashHistory extends History {
     window.history.go(n)
   }
 
+  // 确认url
   ensureURL (push?: boolean) {
     const current = this.current.fullPath
-    if (getHash() !== current) {
+    if (getHash() !== current) { // 比对url
       push ? pushHash(current) : replaceHash(current)
     }
   }
@@ -135,6 +136,7 @@ export function getHash (): string {
   return href
 }
 
+// 拼接hash
 function getUrl (path) {
   const href = window.location.href
   const i = href.indexOf('#')
@@ -142,6 +144,7 @@ function getUrl (path) {
   return `${base}#${path}`
 }
 
+// 采用push的方法去更新location.hash 如果不支持push就直接赋值替换hash
 function pushHash (path) {
   if (supportsPushState) {
     pushState(getUrl(path))
@@ -150,6 +153,7 @@ function pushHash (path) {
   }
 }
 
+// 采用push的方法去更新location.hash 如果不支持push就直接调用原生replace方法去替换路径
 function replaceHash (path) {
   if (supportsPushState) {
     replaceState(getUrl(path))

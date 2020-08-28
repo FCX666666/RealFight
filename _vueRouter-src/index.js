@@ -133,7 +133,7 @@ export default class VueRouter {
       }
       history.transitionTo(
         history.getCurrentLocation(), // #后边的
-        setupHashListener, // 完成 在更新完视图之后执行
+        setupHashListener, // 完成 
         setupHashListener // 中断
       )
     }
@@ -141,7 +141,7 @@ export default class VueRouter {
     // 每次执行完更新路由之后都会执行这个方法
     history.listen(route => {
       this.apps.forEach((app) => { // 遍历每个app的_route去更新视图
-        app._route = route
+        app._route = route // 触发对应的渲染watcher去更新视图
       })
     })
   }

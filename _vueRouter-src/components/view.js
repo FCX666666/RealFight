@@ -14,18 +14,18 @@ export default {
     // used by devtools to display a router-view badge
     data.routerView = true
 
-    // directly use parent context's createElement() function
-    // so that components rendered by router-view can resolve named slots
+    // directly use parent context's createElement() function  使用父级的createElement方法
+    // so that components rendered by router-view can resolve named slots 就可以获取到具名插槽
     const h = parent.$createElement
     const name = props.name
-    const route = parent.$route
+    const route = parent.$route // 这里调用了$route就会让this._routerRoot._route收集到当前vm的渲染watcher   所以当_route更新的时候 就会重新触发渲染wathcer的update方法进行视图更新
     const cache = parent._routerViewCache || (parent._routerViewCache = {})
 
     // determine current view depth, also check to see if the tree
     // has been toggled inactive but kept-alive.
     let depth = 0
     let inactive = false
-    while (parent && parent._routerRoot !== parent) {
+    while (parent && parent._routerRoot !== parent) { // 通过不断向上寻找 进行深度判断 也便取到对应的深度的组件
       const vnodeData = parent.$vnode ? parent.$vnode.data : {}
       if (vnodeData.routerView) {
         depth++

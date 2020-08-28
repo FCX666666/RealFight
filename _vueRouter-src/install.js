@@ -24,10 +24,10 @@ export function install (Vue) {
         this._routerRoot = this
         this._router = this.$options.router
         this._router.init(this)
-        // 这里定义了_route为响应式属性 这样就能在更新路由之后更新视图
+        // 这里为根vue实例定义了_route为响应式属性  其实就是用户访问的$route 也是为了视图更新作准备
         Vue.util.defineReactive(this, '_route', this._router.history.current)
       } else {
-        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this // 访问到的也是根vue实力上的_routerRoot
       }
       registerInstance(this, this)
     },
@@ -40,7 +40,7 @@ export function install (Vue) {
     get () { return this._routerRoot._router }
   })
 
-  Object.defineProperty(Vue.prototype, '$route', {
+  Object.defineProperty(Vue.prototype, '$route', { 
     get () { return this._routerRoot._route }
   })
 

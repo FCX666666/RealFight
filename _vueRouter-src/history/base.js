@@ -227,7 +227,7 @@ export class History {
   updateRoute (route: Route) {
     const prev = this.current
     this.current = route
-    this.cb && this.cb(route) // 更新视图
+    this.cb && this.cb(route) // 更新route到app上
     this.router.afterHooks.forEach(hook => { // 执行全局after钩子
       hook && hook(route, prev)
     })
