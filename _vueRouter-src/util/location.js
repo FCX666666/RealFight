@@ -7,6 +7,7 @@ import { fillParams } from './params'
 import { warn } from './warn'
 import { extend } from './misc'
 
+// 字符串的location转化成对象 并对一些属性进行处理
 export function normalizeLocation (
   raw: RawLocation,
   current: ?Route,
@@ -15,7 +16,7 @@ export function normalizeLocation (
 ): Location {
   let next: Location = typeof raw === 'string' ? { path: raw } : raw
   // named target
-  if (next._normalized) {
+  if (next._normalized) { // 以标准化直接返回
     return next
   } else if (next.name) {
     next = extend({}, raw)
@@ -35,22 +36,22 @@ export function normalizeLocation (
       next.name = current.name
       next.params = params
     } else if (current.matched.length) {
-      const rawPath = current.matched[current.matched.length - 1].path
-      next.path = fillParams(rawPath, params, `path ${current.path}`)
+      const rawPath = current.matched[current.matched.length - 1].path // 获取定义在route中的路由
+      next.path = fillParams(rawPath, params, `path ${current.path}`) //拿到编译器并编译 通过参数填充url
     } else if (process.env.NODE_ENV !== 'production') {
       warn(false, `relative params navigation requires a current route.`)
     }
     return next
   }
 
-  const parsedPath = parsePath(next.path || '')
+  const parsedPath = parsePath(next.path || '') // 截取url的每个部分
   const basePath = (current && current.path) || '/'
   const path = parsedPath.path
-    ? resolvePath(parsedPath.path, basePath, append || next.append)
+    ? resolvePath(parsedPath.path, basePath, append || next.append) // path合并和提取
     : basePath
 
-  const query = resolveQuery(
-    parsedPath.query,
+  const query = resolveQuery( // query合并和提取
+    parsedPath.query, 
     next.query,
     router && router.options.parseQuery
   )

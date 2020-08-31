@@ -28,12 +28,13 @@ export function resolveQuery (
     process.env.NODE_ENV !== 'production' && warn(false, e.message)
     parsedQuery = {}
   }
-  for (const key in extraQuery) {
+  for (const key in extraQuery) { // 参数合并到新的query对象上去
     parsedQuery[key] = extraQuery[key]
   }
   return parsedQuery
 }
 
+// 解析query字符串
 function parseQuery (query: string): Dictionary<string> {
   const res = {}
 
@@ -43,10 +44,11 @@ function parseQuery (query: string): Dictionary<string> {
     return res
   }
 
+  // 通过循环获取键值对类型的query
   query.split('&').forEach(param => {
     const parts = param.replace(/\+/g, ' ').split('=')
     const key = decode(parts.shift())
-    const val = parts.length > 0
+    const val = parts.length > 0 
       ? decode(parts.join('='))
       : null
 

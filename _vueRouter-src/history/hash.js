@@ -21,7 +21,7 @@ export class HashHistory extends History {
   // to avoid the hashchange listener being fired too early 为了是避免hash监听器触发过早
   setupListeners () {
     const router = this.router
-    const expectScroll = router.options.scrollBehavior
+    const expectScroll = router.options.scrollBehavior // 配置了滚动行为
     const supportsScroll = supportsPushState && expectScroll
 
     if (supportsScroll) {
@@ -37,7 +37,7 @@ export class HashHistory extends History {
         }
         this.transitionTo(getHash(), route => {
           if (supportsScroll) {
-            handleScroll(this.router, route, current, true)
+            handleScroll(this.router, route, current, true) // 处理滚动位置 具体数据保存到了当前history.state状态中
           }
           if (!supportsPushState) {
             replaceHash(route.fullPath)
@@ -102,7 +102,7 @@ function checkFallback (base) {
 
 // 查找斜线 在hash添加/
 function ensureSlash (): boolean {
-  const path = getHash()
+  const path = getHash() // 获取hash 不包括#
   if (path.charAt(0) === '/') {
     return true
   }
@@ -136,7 +136,7 @@ export function getHash (): string {
   return href
 }
 
-// 拼接hash
+// 拼接hash成完整的url
 function getUrl (path) {
   const href = window.location.href
   const i = href.indexOf('#')

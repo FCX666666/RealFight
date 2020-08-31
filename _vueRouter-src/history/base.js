@@ -68,19 +68,19 @@ export class History {
     onComplete?: Function, // 完成
     onAbort?: Function // 终止
   ) {
-     // 初始化的时候this.current是undefined
+     // 初始化的时候this.current是undefined  获当前匹配的路由记录
     const route = this.router.match(location, this.current)
     this.confirmTransition(
       route,
       () => { // 执行完所有的导航钩子队列后会进入
         this.updateRoute(route)  // 更新路由和视图
-        onComplete && onComplete(route)
-        this.ensureURL()
+        onComplete && onComplete(route) // 设置url变动监听器
+        this.ensureURL() // 使用replace的方式修改当前url
 
         // fire ready cbs once
         if (!this.ready) {
           this.ready = true
-          this.readyCbs.forEach(cb => {
+          this.readyCbs.forEach(cb => { // 执行路由成功切换回调
             cb(route)
           })
         }
@@ -91,7 +91,7 @@ export class History {
         }
         if (err && !this.ready) {
           this.ready = true
-          this.readyErrorCbs.forEach(cb => {
+          this.readyErrorCbs.forEach(cb => { // 执行路由失败回调
             cb(err)
           })
         }
@@ -127,7 +127,7 @@ export class History {
       return abort(new NavigationDuplicated(route))
     }
 
-    // 获取需要操作的钩子
+    // 获取需要执行的钩子方法
     const { updated, deactivated, activated } = resolveQueue(
       this.current.matched,
       route.matched
@@ -227,7 +227,7 @@ export class History {
   updateRoute (route: Route) {
     const prev = this.current
     this.current = route
-    this.cb && this.cb(route) // 更新route到app上
+    this.cb && this.cb(route) // 更新route到app上 同时触发视图更新
     this.router.afterHooks.forEach(hook => { // 执行全局after钩子
       hook && hook(route, prev)
     })

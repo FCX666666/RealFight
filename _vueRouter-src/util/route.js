@@ -5,6 +5,7 @@ import { stringifyQuery } from './query'
 
 const trailingSlashRE = /\/?$/
 
+// 创建路由 兼容了重定向 别名路由
 export function createRoute (
   record: ?RouteRecord,
   location: Location,
@@ -16,7 +17,7 @@ export function createRoute (
 
   let query: any = location.query || {}
   try {
-    query = clone(query)
+    query = clone(query) // 递归复制query
   } catch (e) {}
 
   const route: Route = {
@@ -55,7 +56,8 @@ export const START = createRoute(null, {
   path: '/'
 })
 
-// 父子从前到后添加路由记录到一个数组中去 是为了拿到父路由 然后去触发父组件中的路由守卫
+// 父子从前到后添加路由记录到一个数组中去 是为了拿到父路由 然后去触发父组件中的路由守卫 
+// 父子按照从左到右排列 最顶层路由的index为0 在渲染组件的时候会根据这个index进行匹配
 function formatMatch (record: ?RouteRecord): Array<RouteRecord> {
   const res = []
   while (record) {

@@ -27,7 +27,7 @@ export function install (Vue) {
         // 这里为根vue实例定义了_route为响应式属性  其实就是用户访问的$route 也是为了视图更新作准备
         Vue.util.defineReactive(this, '_route', this._router.history.current)
       } else {
-        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this // 访问到的也是根vue实力上的_routerRoot
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this // 访问到的也是根vue实例上的_routerRoot
       }
       registerInstance(this, this)
     },

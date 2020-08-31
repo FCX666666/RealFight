@@ -22,7 +22,7 @@ export function createRouteMap (
   const nameMap: Dictionary<RouteRecord> = oldNameMap || Object.create(null)
 
   routes.forEach(route => { // 所有的路由匹配记录都添加到三个引用中
-    addRouteRecord(pathList, pathMap, nameMap, route) // 添加一条路由匹配记录
+    addRouteRecord(pathList, pathMap, nameMap, route) // 添加路由record到map和list中去
   })
 
   // ensure wildcard（通配符） routes are always at the end 确保通配符路由在最后
@@ -46,7 +46,7 @@ export function createRouteMap (
     }
   }
 
-  return {
+  return { // 最终返回包裹map 和 list 的对戏那个
     pathList,
     pathMap,
     nameMap
@@ -74,7 +74,7 @@ function addRouteRecord (
   }
 
   const pathToRegexpOptions: PathToRegexpOptions =
-    route.pathToRegexpOptions || {} // pathToRegexpOptions 路径匹配设置
+    route.pathToRegexpOptions || {} // pathToRegexpOptions 路径正则匹配设置
   const normalizedPath = normalizePath(path, parent, pathToRegexpOptions.strict) // 标准化信息 返回一个标准化的path路径
 
   if (typeof route.caseSensitive === 'boolean') { // 大小写是否敏感
@@ -85,8 +85,8 @@ function addRouteRecord (
   const record: RouteRecord = {
     path: normalizedPath,
     regex: compileRouteRegex(normalizedPath, pathToRegexpOptions), //  通过编译正则的选项去编译标准化的路径到正则规则
-    components: route.components || { default: route.component },
-    instances: {},
+    components: route.components || { default: route.component }, // 支持用户去传入一个组件或者是多个组件
+    instances: {}, // 这里会保存vm实例  这个实例是在beforeCreate钩子执行的时候创建的
     name,
     parent,
     matchAs,
@@ -101,7 +101,7 @@ function addRouteRecord (
           : { default: route.props }
   }
 
-  if (route.children) {
+  if (route.children) { // 判断是不是嵌套路由结构
     // Warn if route is named, does not redirect and has a default child route.
     // If users navigate to this route by name, the default child will
     // not be rendered (GH Issue #629)
@@ -123,11 +123,11 @@ function addRouteRecord (
         )
       }
     }
-    route.children.forEach(child => { // 遍历 为子路由和别名路由创建添加路由记录
+    route.children.forEach(child => { // 遍历 为子路由和别名路由创建添加路由record
       const childMatchAs = matchAs // 别名路由会存在matchAs 为别名路由创建匹配的path
         ? cleanPath(`${matchAs}/${child.path}`)
         : undefined
-      addRouteRecord(pathList, pathMap, nameMap, child, record, childMatchAs) // 深度遍历
+      addRouteRecord(pathList, pathMap, nameMap, child, record, childMatchAs) // 深度遍历 把所有子路由匹配的record都添加到map中去
     })
   }
 
@@ -136,8 +136,8 @@ function addRouteRecord (
     pathMap[record.path] = record
   }
 
-  if (route.alias !== undefined) { // 如果设置了别名
-    const aliases = Array.isArray(route.alias) ? route.alias : [route.alias]
+  if (route.alias !== undefined) { // 如果设置了别名 就会根据别名去创建路由record
+    const aliases = Array.isArray(route.alias) ? route.alias : [route.alias] // 数组包裹
     for (let i = 0; i < aliases.length; ++i) {
       const alias = aliases[i]
       if (process.env.NODE_ENV !== 'production' && alias === path) { // 看看是不是已经和path名称一致了
@@ -149,7 +149,7 @@ function addRouteRecord (
         continue
       }
 
-      const aliasRoute = { 
+      const aliasRoute = { // 代替用户 去创建一个route对象
         path: alias,
         children: route.children
       }
@@ -182,7 +182,7 @@ function compileRouteRegex (
   path: string,
   pathToRegexpOptions: PathToRegexpOptions
 ): RouteRegExp {
-  const regex = Regexp(path, [], pathToRegexpOptions)
+  const regex = Regexp(path, [], pathToRegexpOptions) // 通过一个成型的库 path-to-regexp 去将当前路径path构造出正则表达式 进而去匹配路径
   if (process.env.NODE_ENV !== 'production') {
     const keys: any = Object.create(null)
     regex.keys.forEach(key => {
@@ -204,5 +204,5 @@ function normalizePath (
   if (!strict) path = path.replace(/\/$/, '') // 不是严格模式就直接把最后的/去掉
   if (path[0] === '/') return path // 判断是不是/开头的 代表绝对路径
   if (parent == null) return path // 判断有没有父级路由
-  return cleanPath(`${parent.path}/${path}`) // 相对路径 拼接父级路由
+  return cleanPath(`${parent.path}/${path}`) // 相对路径就需要去拼接父级路由 去除多余的斜线
 }

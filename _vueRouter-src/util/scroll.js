@@ -4,7 +4,7 @@ import type Router from '../index'
 import { assert } from './warn'
 import { getStateKey, setStateKey } from './state-key'
 
-const positionStore = Object.create(null)
+const positionStore = Object.create(null)// 一个对象 记录key和滚动数据对象
 
 export function setupScroll () {
   // Fix for #1585 for Firefox
@@ -13,16 +13,17 @@ export function setupScroll () {
   // window.location.protocol + '//' + window.location.host
   // location.host contains the port and location.hostname doesn't
   const protocolAndPath = window.location.protocol + '//' + window.location.host
-  const absolutePath = window.location.href.replace(protocolAndPath, '')
+  const absolutePath = window.location.href.replace(protocolAndPath, '') // 去除协议和host的部分 保留剩余path部分
   window.history.replaceState({ key: getStateKey() }, '', absolutePath)
   window.addEventListener('popstate', e => {
-    saveScrollPosition()
+    saveScrollPosition() // 每次popstate触发都会保存当前滚动位置
     if (e.state && e.state.key) {
-      setStateKey(e.state.key)
+      setStateKey(e.state.key) // 更新key
     }
   })
 }
 
+// 处理滚动事件
 export function handleScroll (
   router: Router,
   to: Route,
@@ -33,7 +34,7 @@ export function handleScroll (
     return
   }
 
-  const behavior = router.options.scrollBehavior
+  const behavior = router.options.scrollBehavior // 查看当前用户传入的回调方法
   if (!behavior) {
     return
   }
@@ -44,7 +45,7 @@ export function handleScroll (
 
   // wait until re-render finishes before scrolling
   router.app.$nextTick(() => {
-    const position = getScrollPosition()
+    const position = getScrollPosition() // 获取滚动的位置
     const shouldScroll = behavior.call(
       router,
       to,
@@ -72,6 +73,7 @@ export function handleScroll (
   })
 }
 
+// 保存滚动位置
 export function saveScrollPosition () {
   const key = getStateKey()
   if (key) {
@@ -82,6 +84,7 @@ export function saveScrollPosition () {
   }
 }
 
+// 通过statekey去取出应该滚动的位置
 function getScrollPosition (): ?Object {
   const key = getStateKey()
   if (key) {
@@ -138,7 +141,7 @@ function scrollToPosition (shouldScroll, position) {
           ? shouldScroll.offset
           : {}
       offset = normalizeOffset(offset)
-      position = getElementPosition(el, offset)
+      position = getElementPosition(wiel, offset)
     } else if (isValidPosition(shouldScroll)) {
       position = normalizePosition(shouldScroll)
     }
@@ -147,6 +150,16 @@ function scrollToPosition (shouldScroll, position) {
   }
 
   if (position) {
+    //滚动窗口至文档中的特定位置。
+    // 等同于window.scroll
+    // 把纵轴上第 100 个像素置于窗口顶部
+    // window.scroll(0, 100)
+    // window.scroll({
+    //   top: 100,
+    //   left: 100,
+    //   behavior: 'smooth'
+    // });
+    // window.scrollBy是滚动多少距离
     window.scrollTo(position.x, position.y)
   }
 }

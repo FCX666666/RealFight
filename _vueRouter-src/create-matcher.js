@@ -20,9 +20,9 @@ export function createMatcher (
   routes: Array<RouteConfig>, // 数组对象
   router: VueRouter // vue-router实例
 ): Matcher {
-  const { pathList, pathMap, nameMap } = createRouteMap(routes) // 根据传入的数组去创建一些哈希表维持关系
+  const { pathList, pathMap, nameMap } = createRouteMap(routes) // 根据传入的数组去创建一些哈希表维持关系并获取
 
-  function addRoutes (routes) { // 动态添加routes 也是内部提供给外部的api
+  function addRoutes (routes) { // 动态添加routes 也是内部提供给外部的api 可以动态的添加路由 
     createRouteMap(routes, pathList, pathMap, nameMap)
   }
 
@@ -31,7 +31,7 @@ export function createMatcher (
     currentRoute?: Route,
     redirectedFrom?: Location
   ): Route {
-    // 标准化location
+    // 标准化location 保留当前的route的参数和需要跳转的进行合并
     const location = normalizeLocation(raw, currentRoute, false, router)
     const { name } = location
 
@@ -51,14 +51,14 @@ export function createMatcher (
         location.params = {}
       }
 
-      if (currentRoute && typeof currentRoute.params === 'object') {
+      if (currentRoute && typeof currentRoute.params === 'object') { // 将旧的params复制到当前的locations上边去
         for (const key in currentRoute.params) {
           if (!(key in location.params) && paramNames.indexOf(key) > -1) {
             location.params[key] = currentRoute.params[key]
           }
         }
       }
-
+      // 用参数填充路径
       location.path = fillParams(record.path, location.params, `named route "${name}"`)
       return _createRoute(record, location, redirectedFrom)
     } else if (location.path) {
@@ -156,7 +156,7 @@ export function createMatcher (
     return _createRoute(null, location)
   }
 
-  // 创建一个路由
+  // 通过record创建一个路由
   function _createRoute (
     record: ?RouteRecord,
     location: Location,
@@ -171,22 +171,42 @@ export function createMatcher (
     return createRoute(record, location, redirectedFrom, router) //创建常规
   }
 
-  return {
+  return { // matcher
     match,
     addRoutes
   }
 }
 
+// 查看路由和正则是不是匹配的
 function matchRoute (
   regex: RouteRegExp,
   path: string,
-  params: Object
+  params: Object 
 ): boolean {
-  const m = path.match(regex)
-
+  const m = path.match(regex) 
+  // match 方法会把当前匹配内容返回到数组[0],后续匹配的每个原子组都会成为数组m的后续项目 最后还会添加当前匹配内容开始匹配的索引
+  /**
+   * var str = 'For more information, see Chapter 3.4.5.1';
+    var re = /see (chapter \d+(\.\d)*)/i;
+    var found = str.match(re);
+   * 
+   * found => [ 'see Chapter 3.4.5.1',
+//        'Chapter 3.4.5.1',
+//        '.1',
+//        index: 22,
+//        input: 'For more information, see Chapter 3.4.5.1' ]
+   * 
+   * 
+   * // 'see Chapter 3.4.5.1' 是整个匹配。
+// 'Chapter 3.4.5.1' 被'(chapter \d+(\.\d)*)'捕获。
+// '.1' 是被'(\.\d)'捕获的最后一个值。
+// 'index' 属性(22) 是整个匹配从零开始的索引。
+// 'input' 属性是被解析的原始字符串。
+   * 
+   */
   if (!m) {
     return false
-  } else if (!params) {
+  } else if (!params) { // 匹配到了m但是没参数就直接返回true
     return true
   }
 

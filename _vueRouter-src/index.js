@@ -49,7 +49,7 @@ export default class VueRouter {
         ]
       })
     */
-    this.matcher = createMatcher(options.routes || [], this)
+    this.matcher = createMatcher(options.routes || [], this) // 返回包裹matcher方法的对象
 
     let mode = options.mode || 'hash'
     // 设置回退方案 history模式再不支持pushstate和用户未设置false的时候为true
@@ -57,7 +57,7 @@ export default class VueRouter {
     if (this.fallback) {
       mode = 'hash'
     }
-    // 如果不在浏览器环境就设置抽象路由
+    // 如果不在浏览器环境就设置抽象路由模式
     if (!inBrowser) {
       mode = 'abstract'
     }
@@ -128,7 +128,7 @@ export default class VueRouter {
     if (history instanceof HTML5History) { // 判断当前模式
       history.transitionTo(history.getCurrentLocation())
     } else if (history instanceof HashHistory) {
-      const setupHashListener = () => {
+      const setupHashListener = () => { // 执行路由确认之后会设置路由监听器  以便在url变化之后可以让视图和路由进行响应
         history.setupListeners() 
       }
       history.transitionTo(
@@ -138,7 +138,7 @@ export default class VueRouter {
       )
     }
 
-    // 每次执行完更新路由之后都会执行这个方法
+    // 初始化执行完更新路由之后都会执行这个方法
     history.listen(route => {
       this.apps.forEach((app) => { // 遍历每个app的_route去更新视图
         app._route = route // 触发对应的渲染watcher去更新视图
