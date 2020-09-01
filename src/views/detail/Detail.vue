@@ -18,6 +18,7 @@ import MyCheckbox from 'components/common/check/Checkbox'
 import MySync from 'components/common/sync/Sync'
 import MySlot from 'components/common/slot/Slot'
 export default {
+  // name:'detail',
   data() {
     return {
       val: '',
@@ -64,6 +65,10 @@ export default {
     change(){
       this.val3++
     }
+  }
+  ,
+  deactivated(){
+    console.log('de')
   }
 }
 

@@ -17,7 +17,7 @@ export default {
     // directly use parent context's createElement() function  使用父级的createElement方法
     // so that components rendered by router-view can resolve named slots 就可以获取到具名插槽
     const h = parent.$createElement
-    const name = props.name
+    const name = props.name //当前路由name
     const route = parent.$route // 这里调用了$route就会让this._routerRoot._route收集到当前vm的渲染watcher   所以当_route更新的时候 就会重新触发渲染wathcer的update方法进行视图更新
     const cache = parent._routerViewCache || (parent._routerViewCache = {})
 

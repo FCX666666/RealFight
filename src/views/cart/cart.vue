@@ -12,6 +12,7 @@
 
 <script>
 export default {
+  name:'Cart',
   data() {
     return {
       items: []
@@ -27,6 +28,9 @@ export default {
     remove() {
       this.items.splice(Math.floor(Math.random() * this.items.length), 1)
     }
+  },
+  deactivated(){
+    console.log('de')
   }
 }
 </script>

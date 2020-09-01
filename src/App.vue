@@ -1,10 +1,8 @@
 <template>
   <div>
-    <router-view></router-view>
-    <el-cont>
-      <el-aside>123123123123123123123123123</el-aside>
-      <el-main>123123123</el-main>
-    </el-cont>
+    <keep-alive :include="['Cart','Category','detail']">
+      <router-view ></router-view>
+    </keep-alive>
   </div>
 </template>
 

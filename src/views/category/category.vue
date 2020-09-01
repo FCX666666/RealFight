@@ -56,6 +56,10 @@ export default {
       (this.idx > 2 ) && (this.idx = 0) 
       this.current = ['back-top','scroll','top-input'][this.idx]
     }
+  },
+  
+  deactivated(){
+    console.log('de')
   }
 }
 
