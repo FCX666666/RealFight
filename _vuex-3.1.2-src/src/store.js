@@ -23,7 +23,7 @@ export class Store {
     const {
       plugins = [],
       strict = false
-    } = options
+    } = options // 获取一些插件和判定是不是严格模式
 
     // store internal state
     this._committing = false
@@ -31,13 +31,13 @@ export class Store {
     this._actionSubscribers = []
     this._mutations = Object.create(null)
     this._wrappedGetters = Object.create(null)
-    this._modules = new ModuleCollection(options)
+    this._modules = new ModuleCollection(options) // 创建modules
     this._modulesNamespaceMap = Object.create(null)
     this._subscribers = []
     this._watcherVM = new Vue()
     this._makeLocalGettersCache = Object.create(null)
 
-    // bind commit and dispatch to self
+    // bind commit and dispatch to self bind作用域
     const store = this
     const { dispatch, commit } = this
     this.dispatch = function boundDispatch (type, payload) {
@@ -55,7 +55,7 @@ export class Store {
     // init root module.
     // this also recursively registers all sub-modules
     // and collects all module getters inside this._wrappedGetters
-    installModule(this, state, [], this._modules.root)
+    installModule(this, state, [] /* path */, this._modules.root)
 
     // initialize the store vm, which is responsible for the reactivity
     // (also registers _wrappedGetters as computed properties)
@@ -298,8 +298,10 @@ function resetStoreVM (store, state, hot) {
   }
 }
 
+// 安装模块
 function installModule (store, rootState, path, module, hot) {
   const isRoot = !path.length
+  // a/ b/s
   const namespace = store._modules.getNamespace(path)
 
   // register in namespace map

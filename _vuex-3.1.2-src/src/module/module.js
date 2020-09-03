@@ -5,12 +5,13 @@ export default class Module {
   constructor (rawModule, runtime) {
     this.runtime = runtime
     // Store some children item
+    // 创建个空的children用于保存子对象
     this._children = Object.create(null)
     // Store the origin module object which passed by programmer
     this._rawModule = rawModule
     const rawState = rawModule.state
 
-    // Store the origin module's state
+    // Store the origin module's state 如果是方法就执行这个方法拿到数据对象够否则直接保存这个数据对象
     this.state = (typeof rawState === 'function' ? rawState() : rawState) || {}
   }
 
