@@ -46,6 +46,7 @@
     },
     methods:{
       toggle(){
+        this.$emit('click','test')
         // this.cool = 1000
       }
     }

@@ -2391,6 +2391,7 @@ if (process.env.NODE_ENV !== 'production') {
   }
 
   var hasHandler = {
+    // has陷阱在检测属性在不在当前target时候触发
     has: function has(target, key) {
       var has = key in target;
       var isAllowed = allowedGlobals(key) ||
@@ -2831,7 +2832,7 @@ function initProvide(vm) {
 }
 
 /**
- * 初始话injection
+ * 初始化inject
  */
 function initInjections(vm) {
   var result = resolveInject(vm.$options.inject, vm);
@@ -2872,7 +2873,7 @@ function resolveInject(inject, vm) {
     for (var i = 0; i < keys.length; i++) { // 遍历inject中的keys
       var key = keys[i];
       // #6574 in case the inject object is observed...
-      if (key === '__ob__') { // 如果已经是一个响应式的了 直接跳过 例如（Vue.observe({})）
+      if (key === '__ob__') { // 跳过该属性
         continue
       }
       var provideKey = inject[key].from; // 拿到提供的组件中的当前需要属性的名字
@@ -5254,25 +5255,26 @@ Watcher.prototype.addDep = function addDep(dep) {
 };
 
 /**
- * ？？？ 没看懂的方法
+ * 清除掉无用的依赖
  * Clean up for dependency collection.
  */
 Watcher.prototype.cleanupDeps = function cleanupDeps() {
   var i = this.deps.length;
   while (i--) {
     var dep = this.deps[i];
-    if (!this.newDepIds.has(dep.id)) {
+    if (!this.newDepIds.has(dep.id)) {// 新传入的依赖项中没有当前id 就在dep中删除当前wathcer  防止触发无用的watcher.update
       dep.removeSub(this);
     }
   }
   var tmp = this.depIds;
   this.depIds = this.newDepIds;
-  this.newDepIds = tmp;
-  this.newDepIds.clear();
+  this.newDepIds = tmp;  
+  this.newDepIds.clear();// 新旧depid依赖交换 然后把新的清空 等待下次依赖更新
+
   tmp = this.deps;
   this.deps = this.newDeps;
   this.newDeps = tmp;
-  this.newDeps.length = 0;
+  this.newDeps.length = 0; // 新旧dep交换 
 };
 
 /**

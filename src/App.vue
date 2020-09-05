@@ -1,10 +1,4 @@
-<template>
-  <div>
-    <keep-alive :include="['Cart','Category','detail']">
-      <router-view ></router-view>
-    </keep-alive>
-  </div>
-</template>
+
 
 <script>
 import "../_element-ui/lib/theme-chalk/index.css";
@@ -15,7 +9,11 @@ import ElCont from "../_element-ui/packages/container/src/main";
 import Vue from "vue";
 const A = {
   name: "A",
-  template: "<div> click 1 </div>",
+  template: "<div>  {{per}} ｜ {{some}} ｜{{tes}} </div>",
+  inject:['some','per','tes'],
+  beforeCreate(){
+    this.$emit('click')
+  },
   mixins: [
     {
       data() {
@@ -39,8 +37,17 @@ const B = {
   name: "B",
   template: "<p> click 2 </p>",
 };
-
+const t = Vue.observable({
+        name:'zs'
+      })
 export default {
+  template:`
+  <div>
+    <component :is='cpn' @click='change1' />
+    {{per}}
+    {{name}}
+    <main-tab-bar @click='hdl'></main-tab-bar>
+  </div>`,
   name: "app",
   // template:`
   //  <div>
@@ -54,12 +61,24 @@ export default {
   data: () => ({
     isShow: false,
     cpn: "A",
+    name:'zhangan',
+    per:{
+      name:'ls',
+      age:18
+    }
     // i:'i am not on my-cpns props',
     // zs:{
     //   name:"zs",
     //   age:20
     // }
   }),
+  provide(){
+    return {
+      some:this.name,
+      per:this.per,
+      tes:t
+    }
+  },
   components: {
     MainTabBar,
     A,
@@ -72,6 +91,24 @@ export default {
     show(a, e) {
       this.cpn = this.cpn == "A" ? "B" : "A";
     },
+    hdl(){
+      this.change3()
+    },
+    change1(){
+      console.log('con beforecreated')
+        this.per.name = 'zs'
+    },
+    change2(){
+        this.per = {
+            name:'zs'
+        }
+    },
+    change3(){
+        this.name = 10
+    },
+    change4(){
+        t.name = 'ls'
+    }
   },
   watch: {
     isShow(old, val) {
@@ -79,13 +116,13 @@ export default {
     },
   },
   computed: {
-    name() {
-      return this.isShow;
-    },
+    // name() {
+    //   return this.isShow;
+    // },
   },
   mounted() {
     console.log(this);
-  },
+  }
 };
 </script>
 

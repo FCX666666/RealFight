@@ -19,6 +19,7 @@ const store = new Vuex.Store({
   },
   modules: {
     a: {
+      namespaced:true,
       state: {
         //状态 也就是数据
         countIn: 0,
