@@ -31,6 +31,7 @@ const A = {
       },
     },
   ],
+  props:['test','name']
 };
 
 const B = {
@@ -43,7 +44,7 @@ const t = Vue.observable({
 export default {
   template:`
   <div>
-    <component :is='cpn' @click='change1' />
+    <component :is='cpn' :test='lala' name='zozo' @click='change1' />
     {{per}}
     {{name}}
     <main-tab-bar @click='hdl'></main-tab-bar>
@@ -65,7 +66,8 @@ export default {
     per:{
       name:'ls',
       age:18
-    }
+    },
+    lala:100
     // i:'i am not on my-cpns props',
     // zs:{
     //   name:"zs",

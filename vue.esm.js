@@ -829,7 +829,7 @@ Dep.prototype.notify = function notify() {
 // The current target watcher being evaluated.
 // This is globally unique because only one watcher
 // can be evaluated at a time.
-Dep.target = null; // 当前vm对应的render-watcher 始终指向targetstack的栈顶元素
+Dep.target = null; // 当前vm对应的render-watcher或者user-wathcher 始终指向targetstack的栈顶元素
 var targetStack = []; // 维护一个watcher栈  在深度遍历组件渲染的过程中保存watcher
 
 // 入栈
@@ -2667,7 +2667,7 @@ function extractPropsFromVNodeData(
         }
       }
       // 首先在props查找 如果没有就会在attrs进行查找 
-      // 带有: 会编译成props  没有: 会编译成attrs 
+      // v-bind或者：或者不带：都会编译到attrs
       // 只要是定义在组件的props属性中的,会在占位节点attr和props进行查找,合并到props中去
       // props优先级更高 就算是没有带：的attrs也可能会添加到res.props中去
       checkProp(res, props, key, altKey, true) ||
@@ -5316,7 +5316,7 @@ Watcher.prototype.run = function run() {
       // when the value is the same, because the value may
       // have mutated.
       isObject(value) ||
-      this.deep // 深度监听就直接更新了 
+      this.deep // 深度监听就直接进行数据更新而不进行深层的比对
     ) {
       // set new value
       var oldValue = this.value;
@@ -5649,11 +5649,15 @@ function createComputedGetter(key) {
     var watcher = this._computedWatchers && this._computedWatchers[key];
     if (watcher) {
       if (watcher.dirty) { // 判断计算结果值变了没有
+        // computed的watcher中的getter中的所有响应式的值的dep都将添加到watcher.deps中
         watcher.evaluate(); // 变了就进行一次evaluate 初始化的时候也要执行一次计算
       }
       if (Dep.target) { // 判断该当前上下文的watcher 可能是别的computed-watcher 也可能是render-watcher
         // this.depids 中收集了当前wathcer订阅了哪几个dep的id（属性的更新）
-        // 当前watcher中的dep列表进行全部重新依赖收集 把当前wathcer重新添加到订阅列表中去
+        // 当前watcher中的dep列表进行全部重新依赖收集 
+        // 特别注意：在执行完watcher.evaluate之后，Dep.target指向的当前计算属性被使用的watcher之中，可能是其他计算属性，user-watcher，或者是render-wathcer
+        // 循环watcher.deps中的每一个dep去进行依赖收集 这样做的目的是把当前计算属性中用到的响应式属性和当前计算属性的环境watcher建立关系
+        // 这样computed内部属性变化的时候就会通知到computed所在的watcher去检查更新 这时候就会再次进入到这个方法 调用watcher.evaluate 获取计算属性的结果然后返回
         watcher.depend(); 
       }
       return watcher.value // 返回最新的计算属性值

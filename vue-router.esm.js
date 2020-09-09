@@ -1491,6 +1491,7 @@ function createMatcher (
         warn(record, ("Route with name '" + name + "' does not exist"));
       }
       if (!record) { return _createRoute(null, location) }
+      
       var paramNames = record.regex.keys
         .filter(function (key) { return !key.optional; })
         .map(function (key) { return key.name; });
