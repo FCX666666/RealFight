@@ -71,6 +71,9 @@ import router from './router'
 import App from './App.vue'
 // import http from './network/http'
 import store from './store'
+import mermaid from 'mermaid'
+mermaid.initialize({startOnLoad:false})
+Vue.prototype.maidApi = mermaid.mermaidAPI
 // import utils from 'common/utils'
 // import toast from 'components/common/toast'
 // import lazyLoad from 'vue-lazyload'

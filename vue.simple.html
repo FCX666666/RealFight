@@ -8,30 +8,57 @@
 </head>
 
 <body>
-
+  <!-- 
   <input type="text" id="text">
-  <input type="button" id="btn" value="点击">
+  <input type="button" id="btn" value="点击"> -->
 
-  <div id="app"></div>
-  <script src="./vue.simple.js"></script>
-  <script src="./event.js"></script>
+  <div id="me">
+    graph LR
+    A --> B
+  </div>
+  <script src="./node_modules/mermaid/dist/mermaid.min.js"></script>
+  <!-- <script src="./vue.simple.js"></script>
+  <script src="./event.js"></script> -->
   <script>
-    window.vue = new Vue({
-      data: () => ({
-        msg: true
-      }),
-      methods: {
-        change() {
-          this.$data.msg = !this.$data.msg
-        }
-      },
-      render(createElm) {
-        return createElm('div', this.$data.msg)
-      }
+    // window.vue = new Vue({
+    //   data: () => ({
+    //     msg: true
+    //   }),
+    //   methods: {
+    //     change() {
+    //       this.$data.msg = !this.$data.msg
+    //     }
+    //   },
+    //   render(createElm) {
+    //     return createElm('div', this.$data.msg)
+    //   }
+    // })
+
+    // window.vue.$mount('#app')
+  </script>
+  <script>
+    const Api = mermaid.mermaidAPI
+
+    Api.initialize({
+      startOnLoad: true
     })
 
-    window.vue.$mount('#app')
+    Api.render('me', 'graph TB\na-->b', (a,b) => {
+      console.log(a,b)
+      HTMLElement.append(a)
+    })
 
+    // mermaid.mermaidAPI.initialize({
+    //   startOnLoad: false
+    // });
+
+    // var insertSvg = function (svgCode, bindFunctions) {
+     
+    // };
+
+    // var graphDefinition = 'graph TB\na-->b';
+
+    // var graph = mermaid.mermaidAPI.render('me', graphDefinition, insertSvg);
 
   </script>
 </body>
