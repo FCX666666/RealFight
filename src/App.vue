@@ -1,133 +1,93 @@
 
 
 <script>
-import "../_element-ui/lib/theme-chalk/index.css";
+
+let ID$1 = 0
+
 import MainTabBar from "components/content/MainTabBar";
-import ElAside from "../_element-ui/packages/aside/src/main";
-import ElMain from "../_element-ui/packages/main/src/main";
-import ElCont from "../_element-ui/packages/container/src/main";
 import Vue from "vue";
 
 const A = {
   name: "A",
-  template: "<div>  {{per}} ｜ {{some}} ｜{{tes}} </div>",
-  inject: ["some", "per", "tes"],
-  beforeCreate() {
-    this.$emit("click");
+  template: `
+
+  <div>  
+    <div ref='flow' :class='id'></div>
+  </div>
+  
+  `,
+  props: ['steps', 'type', 'direction'],
+  data() {
+    return {
+      id:'__MERMAID__ID__'+ID$1++
+    }
   },
-  mixins: [
-    {
-      data() {
-        return {
-          age: 10,
-          // name: "lisi",
-        };
-      },
+  computed: {
+    maidSteps() {
+      return this.steps.join('\n')
     },
-  ],
-  props: ["test", "name"],
+    maidType() {
+      return this.type.indexOf('raph') !== -1 ? 'graph' : 'sequenceDiagram'
+    },
+    direct() {
+      return ' ' + (this.maidType === 'graph' ? this.direction.toUpperCase() : '') + '\n'
+    },
+    res() {
+      return this.maidType + this.direct + this.maidSteps
+    },
+    append(val){
+      console.log()
+    }
+  },
+  methods: {
+    initMermaid(val) {
+      this.maidApi.initialize({ startOnLoad: true })
+      this.maidApi.render(this.id, val, (a, b) => {
+        this.$refs.flow.innerHTML = a
+      })
+    }
+  },
+  mounted() {
+    this.initMermaid(this.res)
+  },
+  watch: {
+    res(val){
+      this.initMermaid(val)
+    }
+  }
 };
 
-const B = {
-  name: "B",
-  template: "<p> click 2 </p>",
-};
 const t = Vue.observable({
-  name: "zs",
-});
+  name: 'zs'
+})
 export default {
   template: `
   <div>
-  <div id='me'></div>
-  <div style="width:200px;height:200px" class='content'></div>
-    <component :is='cpn' :test='lala' name='zozo' @click='change1' />
-    {{per}}
-    {{name}}
-    <main-tab-bar @click='hdl'></main-tab-bar>
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    <component :is='cpn' type='graph' direction='lr' :steps="['a-->b','b-->c','c--s-->d',arr]" />
+    {{arr}}
+    <button @click='arr="d--ss-->a"'>click</button>
   </div>`,
   name: "app",
-  // template:`
-  //  <div>
-  //  <slot></slot>
-  //   <button @click="show"> sjsjsj</button>
-  //   <keep-alive>
-  //     <div>1</div>
-  //     <component :is="cpn" />
-  //   </keep-alive>
-  // </div>`,
   data: () => ({
-    isShow: false,
-    cpn: "A",
-    name: "zhangan",
-    per: {
-      name: "ls",
-      age: 18,
-    },
-    lala: 100,
-    // i:'i am not on my-cpns props',
-    // zs:{
-    //   name:"zs",
-    //   age:20
-    // }
+    arr: 'test',
+    cpn: 'A'
   }),
-  provide() {
-    return {
-      some: this.name,
-      per: this.per,
-      tes: t,
-    };
-  },
   components: {
-    MainTabBar,
-    A,
-    B,
-    ElAside,
-    ElMain,
-    ElCont,
-  },
-  methods: {
-    show(a, e) {
-      this.cpn = this.cpn == "A" ? "B" : "A";
-    },
-    hdl() {
-      this.change3();
-    },
-    change1() {
-      console.log("con beforecreated");
-      this.per.name = "zs";
-    },
-    change2() {
-      this.per = {
-        name: "zs",
-      };
-    },
-    change3() {
-      this.name = 10;
-    },
-    change4() {
-      t.name = "ls";
-    },
-  },
-  watch: {
-    isShow(old, val) {
-      console.log(val === old);
-    },
-  },
-  computed: {
-    // name() {
-    //   return this.isShow;
-    // },
+    A
   },
   mounted() {
-    // this.mermaidApi.initialize({startOnLoad:true})
-    // this.$nextTick(() => {
-    //   this.mermaidApi.render("me", "graph TB\na-->b", () => {
-    //     console.log(1);
-    //   });
-    // });
-    // console.log(document.querySelector('#editor'))
-    // new this.E('.tool','.content').create()
+    console.log(this)
   },
+  updated() {
+    console.log(this)
+  }
 };
 </script>
 
