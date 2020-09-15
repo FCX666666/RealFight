@@ -7,31 +7,25 @@ import ElAside from "../_element-ui/packages/aside/src/main";
 import ElMain from "../_element-ui/packages/main/src/main";
 import ElCont from "../_element-ui/packages/container/src/main";
 import Vue from "vue";
+
 const A = {
   name: "A",
   template: "<div>  {{per}} ｜ {{some}} ｜{{tes}} </div>",
-  inject:['some','per','tes'],
-  beforeCreate(){
-    this.$emit('click')
+  inject: ["some", "per", "tes"],
+  beforeCreate() {
+    this.$emit("click");
   },
   mixins: [
     {
       data() {
         return {
-          name: "zhangsan",
-        };
-      },
-    },
-    {
-      data() {
-        return {
           age: 10,
-          name: "lisi",
+          // name: "lisi",
         };
       },
     },
   ],
-  props:['test','name']
+  props: ["test", "name"],
 };
 
 const B = {
@@ -39,11 +33,13 @@ const B = {
   template: "<p> click 2 </p>",
 };
 const t = Vue.observable({
-        name:'zs'
-      })
+  name: "zs",
+});
 export default {
-  template:`
+  template: `
   <div>
+  <div id='me'></div>
+  <div style="width:200px;height:200px" class='content'></div>
     <component :is='cpn' :test='lala' name='zozo' @click='change1' />
     {{per}}
     {{name}}
@@ -62,24 +58,24 @@ export default {
   data: () => ({
     isShow: false,
     cpn: "A",
-    name:'zhangan',
-    per:{
-      name:'ls',
-      age:18
+    name: "zhangan",
+    per: {
+      name: "ls",
+      age: 18,
     },
-    lala:100
+    lala: 100,
     // i:'i am not on my-cpns props',
     // zs:{
     //   name:"zs",
     //   age:20
     // }
   }),
-  provide(){
+  provide() {
     return {
-      some:this.name,
-      per:this.per,
-      tes:t
-    }
+      some: this.name,
+      per: this.per,
+      tes: t,
+    };
   },
   components: {
     MainTabBar,
@@ -93,24 +89,24 @@ export default {
     show(a, e) {
       this.cpn = this.cpn == "A" ? "B" : "A";
     },
-    hdl(){
-      this.change3()
+    hdl() {
+      this.change3();
     },
-    change1(){
-      console.log('con beforecreated')
-        this.per.name = 'zs'
+    change1() {
+      console.log("con beforecreated");
+      this.per.name = "zs";
     },
-    change2(){
-        this.per = {
-            name:'zs'
-        }
+    change2() {
+      this.per = {
+        name: "zs",
+      };
     },
-    change3(){
-        this.name = 10
+    change3() {
+      this.name = 10;
     },
-    change4(){
-        t.name = 'ls'
-    }
+    change4() {
+      t.name = "ls";
+    },
   },
   watch: {
     isShow(old, val) {
@@ -123,8 +119,15 @@ export default {
     // },
   },
   mounted() {
-    console.log(this);
-  }
+    // this.mermaidApi.initialize({startOnLoad:true})
+    // this.$nextTick(() => {
+    //   this.mermaidApi.render("me", "graph TB\na-->b", () => {
+    //     console.log(1);
+    //   });
+    // });
+    // console.log(document.querySelector('#editor'))
+    // new this.E('.tool','.content').create()
+  },
 };
 </script>
 

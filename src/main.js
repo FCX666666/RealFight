@@ -71,6 +71,7 @@ import router from './router'
 import App from './App.vue'
 // import http from './network/http'
 import store from './store'
+import mermaid from 'mermaid'
 // import utils from 'common/utils'
 // import toast from 'components/common/toast'
 // import lazyLoad from 'vue-lazyload'
@@ -104,7 +105,9 @@ import store from './store'
 //   error:require('@/assets/img/logo.png'),//加載失敗
 //   loading:require('@/assets/img/logo.png')//加載中
 // })
+import E from 'wangeditor'
 
+Vue.prototype.E = E
 Vue.component('my-cpn', function (resolve) {
   setTimeout(() => {
     resolve({
